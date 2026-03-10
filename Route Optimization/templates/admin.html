@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Operations Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F5F6F8;
+            color: #111827;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: #1F2937;
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-subtitle {
+            font-size: 14px;
+            color: #9CA3AF;
+            margin-top: 4px;
+        }
+        
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(124, 58, 237, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background: white;
+            padding: 24px;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .stat-item {
+            background: #F9FAFB;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6B7280;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
+        
+        .stat-value.accent {
+            color: #7C3AED;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #7C3AED;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #6D28D9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #374151;
+            color: white;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #1F2937;
+        }
+        
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #059669;
+        }
+        
+        /* Map Area */
+        .map-container {
+            flex: 1;
+            padding: 24px;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .fleet-status {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1000;
+        }
+        
+        .fleet-status-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+        
+        .fleet-info {
+            font-size: 13px;
+            color: #6B7280;
+            margin-bottom: 6px;
+        }
+        
+        .fleet-info strong {
+            color: #111827;
+        }
+        
+        .route-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-box {
+            background: #F9FAFB;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            color: #6B7280;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #7C3AED;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #E5E7EB;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7C3AED, #A78BFA);
+            transition: width 0.3s;
+        }
+        .truck-marker {
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <div class="header-title">Smart Waste Operations Dashboard</div>
+            <div class="header-subtitle">Municipal Waste Management System</div>
+        </div>
+        <div class="system-status">
+            <div class="status-dot"></div>
+            <span id="systemStatus">System Active</span>
+        </div>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- City Overview -->
+            <div class="card">
+                <div class="card-title">🏙️ City Overview</div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Houses</div>
+                        <div class="stat-value" id="totalHouses">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Garbage Reports</div>
+                        <div class="stat-value accent" id="garbageHouses">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Pending</div>
+                        <div class="stat-value" id="remainingHouses">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Collected</div>
+                        <div class="stat-value accent" id="collectedHouses">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Route Metrics -->
+            <div class="card" id="routeMetricsCard" style="display:none;">
+                <div class="card-title">📊 Route Metrics</div>
+                <div class="route-metrics">
+                    <div class="metric-box">
+                        <div class="metric-label">Distance</div>
+                        <div class="metric-value" id="routeDistance">-</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Stops</div>
+                        <div class="metric-value" id="routeStops">-</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Efficiency</div>
+                        <div class="metric-value" id="routeEfficiency">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Controls -->
+            <div class="card">
+                <div class="card-title">⚙️ System Controls</div>
+                <button id="generateCityBtn" class="btn btn-primary">Generate City</button>
+                <button id="startReportingBtn" class="btn btn-secondary" disabled>Start Reporting Window</button>
+                <button id="optimizeRouteBtn" class="btn btn-success" disabled>Optimize Route</button>
+                <button id="spawnTruckBtn" class="btn btn-primary" disabled>Deploy Truck</button>
+                <button id="resetBtn" class="btn btn-secondary">Reset System</button>
+            </div>
+        </div>
+        
+        <!-- Map Area -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Fleet Status Overlay -->
+            <div class="fleet-status" id="fleetStatus" style="display:none;">
+                <div class="fleet-status-title">🚛 Fleet Status</div>
+                <div class="fleet-info"><strong>Status:</strong> <span id="truckStatus">Active</span></div>
+                <div class="fleet-info"><strong>Progress:</strong> <span id="truckProgress">0%</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map, markers = {}, routeLine = null, truckMarker = null;
+        let simulationData = {
+            houses: [], garbageHouses: [], noGarbageHouses: [], collectedHouses: [],
+            optimizedRoute: null, truckPosition: null, reportingEnded: false,
+            routeOptimized: false, truckSpawned: false, cityGenerated: false
+        };
+        
+        function initMap() {
+            map = L.map('map').setView([11.018, 76.972], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+        }
+        
+        function updateStatistics() {
+            document.getElementById('totalHouses').textContent = simulationData.houses.length;
+            document.getElementById('garbageHouses').textContent = simulationData.garbageHouses.length;
+            document.getElementById('collectedHouses').textContent = simulationData.collectedHouses.length;
+            document.getElementById('remainingHouses').textContent = 
+                simulationData.garbageHouses.length - simulationData.collectedHouses.length;
+        }
+        
+        function clearMarkers() {
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+            if (routeLine) {
+                routeLine.forEach(line => map.removeLayer(line));
+                routeLine = null;
+            }
+            if (truckMarker) map.removeLayer(truckMarker);
+        }
+        
+        function addHouseMarkers() {
+            clearMarkers();
+            
+            // Depot
+            markers['depot'] = L.marker([11.018, 76.972], {
+                icon: L.divIcon({
+                    html: '<div style="background:#7C3AED;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏢</div>',
+                    iconSize: [36, 36], iconAnchor: [18, 18]
+                })
+            }).addTo(map).bindPopup('Depot');
+            
+            // Processing
+            markers['processing'] = L.marker([11.020, 76.975], {
+                icon: L.divIcon({
+                    html: '<div style="background:#EF4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏭</div>',
+                    iconSize: [36, 36], iconAnchor: [18, 18]
+                })
+            }).addTo(map).bindPopup('Processing Center');
+            
+            // Houses
+            simulationData.houses.forEach(house => {
+                let color = '#9CA3AF', icon = '🏠';
+                if (house.has_garbage === false) { color = '#EF4444'; icon = '❌'; }
+                else if (house.has_garbage === true) { color = '#10B981'; icon = '🗑️'; }
+                else if (house.collected) { color = '#F59E0B'; icon = '✅'; }
+                
+                markers[house.id] = L.marker([house.lat, house.lng], {
+                    icon: L.divIcon({
+                        html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;">${icon}</div>`,
+                        iconSize: [28, 28], iconAnchor: [14, 14]
+                    })
+                }).addTo(map);
+            });
+        }
+        
+        function drawOptimizedRoute(route, routeCoordinates) {
+            if (routeLine) {
+                routeLine.forEach(line => map.removeLayer(line));
+            }
+            
+            const coordinates = routeCoordinates && routeCoordinates.length > 0 
+                ? routeCoordinates 
+                : route.map(point => [point.coords[0], point.coords[1]]);
+            
+            // Shadow/glow layer
+            const shadowLine = L.polyline(coordinates, {
+                color: '#C4B5FD',
+                weight: 8,
+                opacity: 0.35,
+                smoothFactor: 1
+            }).addTo(map);
+            
+            // Main dashed route
+            const mainLine = L.polyline(coordinates, {
+                color: '#7C3AED',
+                weight: 5,
+                opacity: 0.85,
+                dashArray: '8,10',
+                lineCap: 'round',
+                lineJoin: 'round',
+                smoothFactor: 1
+            }).addTo(map);
+            
+            routeLine = [shadowLine, mainLine];
+            
+            map.fitBounds(mainLine.getBounds(), { padding: [50, 50] });
+        }
+        
+        function spawnTruck() {
+            if (truckMarker) map.removeLayer(truckMarker);
+            
+            truckMarker = L.marker([11.018, 76.972], {
+                icon: L.divIcon({
+                    html: '<div style="background:#F59E0B;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;transform-origin:center center;" id="truckIcon">🚛</div>',
+                    className: 'truck-marker',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20],
+                    popupAnchor: [0, -20]
+                })
+            }).addTo(map);
+            
+            document.getElementById('fleetStatus').style.display = 'block';
+        }
+        
+        function calculateBearing(lat1, lng1, lat2, lng2) {
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                      Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLng);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+        
+        async function checkSimulationStatus() {
+            try {
+                const response = await fetch('/api/get_simulation_status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const sim = data.simulation;
+                    
+                    // Load houses if available
+                    if (sim.houses && sim.houses.length > 0) {
+                        simulationData.houses = sim.houses;
+                        simulationData.cityGenerated = sim.city_generated || false;
+                        
+                        // Only update markers if houses changed
+                        if (Object.keys(markers).length === 0 || simulationData.houses.length !== Object.keys(markers).length - 2) {
+                            addHouseMarkers();
+                        }
+                    }
+                    
+                    // Update garbage houses
+                    if (sim.garbage_houses) {
+                        simulationData.garbageHouses = sim.garbage_houses;
+                    }
+                    if (sim.no_garbage_houses) {
+                        simulationData.noGarbageHouses = sim.no_garbage_houses;
+                    }
+                    if (sim.collected_houses) {
+                        simulationData.collectedHouses = sim.collected_houses;
+                    }
+                    
+                    // Update statistics
+                    updateStatistics();
+                    
+                    if (sim.reporting_ended && !simulationData.reportingEnded) {
+                        simulationData.reportingEnded = true;
+                        addHouseMarkers();
+                        document.getElementById('optimizeRouteBtn').disabled = false;
+                    }
+                    
+                    if (sim.truck_spawned && sim.truck_position && truckMarker) {
+                        const oldPos = simulationData.truckPosition;
+                        const newPos = sim.truck_position;
+                        
+                        truckMarker.setLatLng([newPos.lat, newPos.lng]);
+                        
+                        // Rotate truck to face direction of travel
+                        if (oldPos && (oldPos.lat !== newPos.lat || oldPos.lng !== newPos.lng)) {
+                            const bearing = calculateBearing(oldPos.lat, oldPos.lng, newPos.lat, newPos.lng);
+                            const truckIcon = document.getElementById('truckIcon');
+                            if (truckIcon) {
+                                truckIcon.style.transform = `rotate(${bearing}deg)`;
+                            }
+                        }
+                        
+                        simulationData.truckPosition = newPos;
+                        
+                        // Update progress
+                        if (sim.truck_road_index && sim.route_coordinates) {
+                            const progress = (sim.truck_road_index / sim.route_coordinates.length * 100).toFixed(0);
+                            document.getElementById('truckProgress').textContent = progress + '%';
+                            document.getElementById('progressFill').style.width = progress + '%';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Event Listeners
+        document.getElementById('generateCityBtn').addEventListener('click', async () => {
+            const response = await fetch('/api/generate_city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ num_houses: 50 })
+            });
+            const data = await response.json();
+            if (data.success) {
+                simulationData.houses = data.houses;
+                simulationData.cityGenerated = true;
+                addHouseMarkers();
+                updateStatistics();
+                document.getElementById('startReportingBtn').disabled = false;
+            }
+        });
+        
+        document.getElementById('startReportingBtn').addEventListener('click', async () => {
+            const response = await fetch('/api/start_reporting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) window.location.href = data.redirect_url;
+        });
+        
+        document.getElementById('optimizeRouteBtn').addEventListener('click', async () => {
+            const response = await fetch('/api/optimize_route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                simulationData.optimizedRoute = data.route;
+                simulationData.routeOptimized = true;
+                drawOptimizedRoute(data.route, data.route_coordinates);
+                
+                document.getElementById('routeMetricsCard').style.display = 'block';
+                document.getElementById('routeDistance').textContent = data.total_distance_km + 'km';
+                document.getElementById('routeStops').textContent = data.houses_visited;
+                document.getElementById('routeEfficiency').textContent = data.percentage_saved + '%';
+                document.getElementById('spawnTruckBtn').disabled = false;
+            }
+        });
+        
+        document.getElementById('spawnTruckBtn').addEventListener('click', async () => {
+            const response = await fetch('/api/spawn_truck', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                simulationData.truckSpawned = true;
+                spawnTruck();
+                document.getElementById('spawnTruckBtn').disabled = true;
+            }
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', async () => {
+            await fetch('/api/reset_simulation', { method: 'POST' });
+            location.reload();
+        });
+        
+        setInterval(checkSimulationStatus, 500);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            // Load existing simulation state
+            checkSimulationStatus();
+        });
+    </script>
+</body>
+</html>
