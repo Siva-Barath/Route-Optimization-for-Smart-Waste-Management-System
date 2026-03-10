@@ -1,87 +1,102 @@
-# Smart Waste Collection Demo
+# Smart Waste Collection Route Optimization System
 
-A Flask-based demonstration of an intelligent waste collection system that optimizes garbage truck routes for efficient city-wide collection.
+A professional smart city operations dashboard for optimizing garbage collection routes using real road networks and citizen reporting.
 
 ## Features
 
-- **City Generation**: Automatically generates houses and depot locations
-- **Garbage Reporting**: Residents report garbage status via web interface
-- **Route Optimization**: Calculates optimal collection route using TSP algorithm
-- **Automatic Truck Movement**: Truck follows optimized route automatically
-- **Real-time Tracking**: Live map visualization of truck position
-- **Garbage Collection**: Interactive collection at each house
+- **City Generation**: Generate 50 random houses across Coimbatore
+- **Citizen Reporting**: 30-second reporting window for residents to report garbage availability
+- **Route Optimization**: TSP-based route optimization using real OpenStreetMap road networks
+- **Real-time Tracking**: Live truck movement visualization with direction-based rotation
+- **Professional Dashboard**: Operations dashboard with fleet status, route metrics, and city overview
+- **Road-based Routing**: Uses OSMnx and Dijkstra's algorithm for realistic path planning
 
-## Quick Start
+## Tech Stack
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- **Backend**: Flask (Python)
+- **Frontend**: Leaflet.js, HTML5, CSS3
+- **Routing**: OSMnx, NetworkX, Scikit-learn
+- **Maps**: OpenStreetMap
 
-2. **Run the demo**:
-   ```bash
-   python smart_waste_demo.py
-   ```
+## Installation
 
-3. **Open in browser**:
-   Navigate to `http://localhost:5000`
+1. Clone the repository:
+```bash
+git clone https://github.com/Siva-Barath/Route-Optimization-for-Smart-Waste-Management-System.git
+cd "Route Optimization"
+```
 
-## Demo Workflow
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-1. **Generate City**: Creates random house locations and depot
-2. **Start Reporting**: Opens 30-second window for residents to report garbage
-3. **Report Garbage**: Click houses to report garbage (automatic YES selection)
-4. **Optimize Route**: Calculates optimal TSP route through all garbage houses
-5. **Spawn Truck**: Truck appears at depot and begins automatic movement
-6. **Follow Collection**: Watch truck move along optimized route
-7. **Collect Garbage**: Press 'C' when truck stops at garbage houses
+## Usage
 
-## Architecture
+1. Start the Flask application:
+```bash
+python smart_waste_demo.py
+```
 
-### Backend (Flask)
-- **City Generator**: Creates random house coordinates
-- **Route Optimizer**: Implements TSP algorithm for efficient routing
-- **Truck Controller**: Background thread moves truck every 3 seconds
-- **API Endpoints**: RESTful API for frontend communication
+2. Open your browser and navigate to:
+```
+http://localhost:5000
+```
 
-### Frontend (Leaflet.js)
-- **Interactive Map**: Visual representation of city and routes
-- **Real-time Updates**: Polls backend every 1.5 seconds
-- **Automatic Collection**: Truck follows optimized route automatically
-- **User Interface**: Bootstrap-based responsive design
+3. **Admin Dashboard**:
+   - Click "Generate City" to create 50 houses
+   - Click "Start Reporting Window" to open citizen reporting interface
+   - Citizens report garbage availability (30 seconds)
+   - Click "Optimize Route" to calculate optimal collection path
+   - Click "Deploy Truck" to start real-time collection simulation
 
-## API Endpoints
+4. **Reporting Dashboard**:
+   - Click houses to report garbage (auto-YES)
+   - View real-time statistics
+   - Complete reports before timer ends
 
-- `GET /` - Admin interface
-- `GET /reporting` - Resident reporting interface
-- `POST /api/generate_city` - Generate new city
-- `POST /api/start_reporting` - Start garbage reporting window
-- `POST /api/update_garbage_status` - Update house garbage status
-- `POST /api/end_reporting` - End reporting window
-- `POST /api/optimize_route` - Calculate optimal collection route
-- `POST /api/spawn_truck` - Spawn truck and start movement
-- `GET /api/get_simulation_status` - Get current simulation state
-- `POST /api/collect_garbage` - Collect garbage from house
+## How It Works
 
-## Technologies
+### Route Optimization
+- Loads Coimbatore road network from OpenStreetMap
+- Filters roads to keep only main public roads (motorway, trunk, primary, secondary, tertiary, residential)
+- Uses Dijkstra's algorithm to compute shortest paths between houses
+- Solves Traveling Salesman Problem (TSP) to find optimal visit order
+- Generates smooth truck movement along actual road coordinates
 
-- **Backend**: Python 3.x, Flask, Threading
-- **Frontend**: HTML5, JavaScript, Leaflet.js, Bootstrap 5
-- **Algorithms**: Traveling Salesman Problem (TSP) optimization
-- **Mapping**: OpenStreetMap with Leaflet.js
+### Truck Movement
+- Truck follows 200-500 road coordinates per route
+- Updates position every 1 second
+- Rotates to face direction of travel
+- Frontend polls every 0.5 seconds for smooth animation
+
+### UI Design
+- Professional operations dashboard (70% map, 30% controls)
+- Dark navy header with violet accents
+- Real-time statistics and fleet status
+- Dashed route visualization with glow effect
 
 ## Project Structure
 
 ```
-smart-waste-demo/
-├── smart_waste_demo.py          # Main Flask application
-├── requirements.txt             # Python dependencies
-├── README.md                 # This file
+Route Optimization/
+├── smart_waste_demo.py          # Flask backend
+├── requirements.txt              # Python dependencies
 └── templates/
-    └── admin.html              # Admin interface
-    └── reporting.html           # Resident reporting interface
+    ├── admin.html               # Operations dashboard
+    └── reporting.html           # Citizen reporting interface
 ```
+
+## Key Metrics
+
+- **Road/Straight-line Distance Ratio**: ~1.5-1.6x (proves realistic road following)
+- **Route Optimization**: TSP-based with Dijkstra shortest paths
+- **Real-time Updates**: 0.5s frontend polling, 1s backend updates
 
 ## License
 
-MIT License - Free for commercial and personal use
+MIT License
+
+## Author
+
+Siva-Barath
