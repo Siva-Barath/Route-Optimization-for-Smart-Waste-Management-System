@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver App - Smart Waste Management</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: white; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2563eb, #1e40af); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header .status { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+        .main-container { display: flex; height: calc(100vh - 72px); }
+        .map-container { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+        .control-panel { width: 320px; background: #2d2d2d; padding: 16px; overflow-y: auto; border-left: 1px solid #404040; }
+        .section { margin-bottom: 16px; padding: 14px; background: #3d3d3d; border-radius: 8px; border: 1px solid #4d4d4d; }
+        .section h3 { font-size: 14px; margin-bottom: 12px; color: #60a5fa; }
+        .btn { width: 100%; padding: 11px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn:disabled { background: #4b5563; cursor: not-allowed; opacity: 0.6; }
+        .info-row { display: flex; justify-content: space-between; padding: 6px 8px; background: #2d2d2d; border-radius: 4px; margin-bottom: 6px; font-size: 13px; }
+        .info-label { color: #9ca3af; }
+        .info-value { font-weight: 600; color: #60a5fa; }
+        .coords { font-family: monospace; color: #93c5fd; font-size: 12px; margin-top: 4px; }
+        .progress-bar { width: 100%; height: 8px; background: #4b5563; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #059669); transition: width 0.3s ease; }
+        .house-list { max-height: 220px; overflow-y: auto; }
+        .house-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 8px; margin-bottom: 4px; background: #3d3d3d; border-radius: 4px; font-size: 12px; }
+        .house-item.completed { background: #065f46; color: #10b981; }
+        .house-item.current { background: #1e40af; color: #93c5fd; font-weight: 600; border: 1px solid #3b82f6; }
+        .msg { padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
+        .msg-error { background: #dc2626; }
+        .msg-success { background: #10b981; }
+        .msg-info { background: #1e40af; text-align: center; color: #9ca3af; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚛 Driver App — T1</h1>
+        <div class="status" id="statusText">Loading route...</div>
+    </div>
+
+    <div class="main-container">
+        <div class="map-container"><div id="map"></div></div>
+
+        <div class="control-panel">
+            <div id="loadingMsg" class="msg msg-info">Loading route data...</div>
+
+            <div id="mainContent" style="display:none;">
+                <div class="section">
+                    <h3>📍 Position</h3>
+                    <div class="coords" id="coordsDisplay">Not started</div>
+                </div>
+
+                <div class="section">
+                    <h3>🛣️ Route Info</h3>
+                    <div class="info-row"><span class="info-label">Truck</span><span class="info-value" id="truckIdDisplay">-</span></div>
+                    <div class="info-row"><span class="info-label">Houses</span><span class="info-value" id="totalHousesDisplay">-</span></div>
+                    <div class="info-row"><span class="info-label">Progress</span><span class="info-value" id="progressDisplay">0/0</span></div>
+                    <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+                </div>
+
+                <div class="section">
+                    <h3>🎮 Controls</h3>
+                    <button id="startBtn" class="btn btn-primary" disabled>🚀 Start Route</button>
+                    <button id="collectBtn" class="btn btn-success" disabled>📦 Collect & Next</button>
+                </div>
+
+                <div class="section">
+                    <h3>🏠 Houses</h3>
+                    <div class="house-list" id="houseList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    let map, truckMarker = null, routePolyline = null;
+    let routeData = null;
+    let pathIndex = 0;
+    let currentHouseIndex = 0;
+    let isMoving = false;
+    let isPaused = false;
+    let moveTimer = null;
+    let currentTruckId = 'T1';
+    const PROCESSING = [28.6139, 77.2090];  // Starting point (Processing Center)
+    const DEPOT = [28.6410, 77.2190];        // Final destination (Depot)
+    const MOVE_INTERVAL_MS = 200; // Slower so admin map shows smooth movement (was 80ms)
+
+    // ─── Map init ────────────────────────────────────────────────────────────
+    function initMap() {
+        map = L.map('map').setView([28.6139, 77.2090], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+    }
+
+    // ─── Load route from backend ─────────────────────────────────────────────
+    async function loadRoute() {
+        try {
+            const res = await fetch('/api/get_routes');
+            const data = await res.json();
+
+            if (!data.routes || data.routes.length === 0) {
+                showMsg('loadingMsg', 'No routes yet. Optimize routes in admin first.', 'error');
+                return;
+            }
+
+            // Always use T1 route
+            const route = data.routes.find(r => r.truck_id === 'T1') || data.routes[0];
+
+            if (!route.route_coordinates || route.route_coordinates.length === 0) {
+                showMsg('loadingMsg', 'Route has no coordinates.', 'error');
+                return;
+            }
+            if (!route.assigned_houses || route.assigned_houses.length === 0) {
+                showMsg('loadingMsg', 'Route has no assigned houses.', 'error');
+                return;
+            }
+
+            routeData = route;
+            currentTruckId = route.truck_id || 'T1';
+
+            // Precompute pathIndex for each house (closest point on path)
+            routeData.assigned_houses.forEach(house => {
+                house._pathIndex = findClosestPathIndex(house.lat, house.lng);
+            });
+            // Sort houses by path order
+            routeData.assigned_houses.sort((a, b) => a._pathIndex - b._pathIndex);
+
+            drawRouteOnMap();
+            buildHouseList();
+            setupUI();
+
+            // Place truck at processing center (starting position) and sync to admin
+            updateTruckMarker(PROCESSING[0], PROCESSING[1]);
+            syncToBackend(PROCESSING[0], PROCESSING[1]);
+
+            document.getElementById('statusText').textContent = 'Route loaded — ready to start';
+        } catch (e) {
+            showMsg('loadingMsg', 'Error loading route: ' + e.message, 'error');
+        }
+    }
+
+    // ─── Draw route line + house markers ─────────────────────────────────────
+    function drawRouteOnMap() {
+        const coords = routeData.route_coordinates.map(p => [p[0], p[1]]);
+
+        if (routePolyline) map.removeLayer(routePolyline);
+        routePolyline = L.polyline(coords, { color: '#DC2626', weight: 5, opacity: 0.85 }).addTo(map);
+        map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+
+        // House & bin markers
+        const houseIcon = L.divIcon({
+            html: '<div style="background:#F97316;color:white;width:30px;height:30px;border-radius:6px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🏠</div>',
+            iconSize: [30, 30], iconAnchor: [15, 15], className: ''
+        });
+        const binIcon = L.divIcon({
+            html: '<div style="background:#6B7280;color:white;width:30px;height:30px;border-radius:6px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🗑️</div>',
+            iconSize: [30, 30], iconAnchor: [15, 15], className: ''
+        });
+        routeData.assigned_houses.forEach(h => {
+            const isBin = h.type === 'bin';
+            L.marker([h.lat, h.lng], { icon: isBin ? binIcon : houseIcon }).addTo(map)
+              .bindTooltip(`${h.id} — ${isBin ? 'Community Bin' : 'Garbage Pickup'}`, { permanent: false });
+        });
+
+        // Processing Center marker (START)
+        L.marker(PROCESSING, {
+            icon: L.divIcon({
+                html: '<div style="background:#059669;color:white;width:38px;height:38px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🏭</div>',
+                iconSize: [38, 38], iconAnchor: [19, 19], className: ''
+            })
+        }).addTo(map).bindTooltip('🟢 Processing Center', { permanent: true, direction: 'right', offset: [20, 0] });
+
+        // Depot marker (END)
+        L.marker(DEPOT, {
+            icon: L.divIcon({
+                html: '<div style="background:#7C3AED;color:white;width:38px;height:38px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🏁</div>',
+                iconSize: [38, 38], iconAnchor: [19, 19], className: ''
+            })
+        }).addTo(map).bindTooltip('🔴 Depot', { permanent: true, direction: 'right', offset: [20, 0] });
+    }
+
+    // ─── Build house list in sidebar ─────────────────────────────────────────
+    function buildHouseList() {
+        const list = document.getElementById('houseList');
+        list.innerHTML = '';
+        routeData.assigned_houses.forEach((h, i) => {
+            const div = document.createElement('div');
+            div.className = 'house-item';
+            div.id = `hitem-${i}`;
+            div.innerHTML = `<span>🏠 ${h.id}</span><span class="hstatus">Pending</span>`;
+            list.appendChild(div);
+        });
+    }
+
+    // ─── Setup UI ─────────────────────────────────────────────────────────────
+    function setupUI() {
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('truckIdDisplay').textContent = currentTruckId;
+        document.getElementById('totalHousesDisplay').textContent = routeData.assigned_houses.length;
+        updateProgress();
+        document.getElementById('startBtn').disabled = false;
+    }
+
+    // ─── Find closest path index for a lat/lng ────────────────────────────────
+    function findClosestPathIndex(lat, lng) {
+        let minDist = Infinity, closest = 0;
+        routeData.route_coordinates.forEach((p, i) => {
+            const d = (p[0] - lat) ** 2 + (p[1] - lng) ** 2;
+            if (d < minDist) { minDist = d; closest = i; }
+        });
+        return closest;
+    }
+
+    // ─── Start route ──────────────────────────────────────────────────────────
+    function startRoute() {
+        if (!routeData) return;
+        pathIndex = 0;
+        currentHouseIndex = 0;
+        isMoving = true;
+        isPaused = false;
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('collectBtn').disabled = true;
+        document.getElementById('statusText').textContent = 'Moving...';
+        scheduleMove();
+    }
+
+    // ─── Core movement loop ───────────────────────────────────────────────────
+    function scheduleMove() {
+        if (moveTimer) clearTimeout(moveTimer);
+        moveTimer = setTimeout(moveStep, MOVE_INTERVAL_MS);
+    }
+
+    function moveStep() {
+        if (!isMoving || isPaused) return;
+
+        const path = routeData.route_coordinates;
+
+        // Reached end of path
+        if (pathIndex >= path.length) {
+            finishRoute();
+            return;
+        }
+
+        const [lat, lng] = path[pathIndex];
+        updateTruckMarker(lat, lng);
+        syncToBackend(lat, lng);
+
+        // Check if we've reached the current target house
+        const houses = routeData.assigned_houses;
+        if (currentHouseIndex < houses.length) {
+            const targetHouse = houses[currentHouseIndex];
+            // Stop when we reach or pass the house's path index
+            if (pathIndex >= targetHouse._pathIndex) {
+                // Snap to house position
+                updateTruckMarker(targetHouse.lat, targetHouse.lng);
+                syncToBackend(targetHouse.lat, targetHouse.lng);
+
+                isPaused = true;
+                document.getElementById('collectBtn').disabled = false;
+                document.getElementById('statusText').textContent = `Stopped at ${targetHouse.id} — click Collect & Next`;
+                highlightCurrentHouse(currentHouseIndex);
+                updateProgress();
+                return; // Don't schedule next move — wait for collect click
+            }
+        }
+
+        pathIndex++;
+        scheduleMove();
+    }
+
+    // ─── Collect & Next ───────────────────────────────────────────────────────
+    function collectAndNext() {
+        if (!isPaused) return;
+
+        const house = routeData.assigned_houses[currentHouseIndex];
+        if (!house) return;
+
+        // Mark collected in backend
+        fetch('/api/mark_house_complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ house_id: house.id, truck_id: currentTruckId })
+        }).catch(() => {});
+
+        // Update house list UI
+        const item = document.getElementById(`hitem-${currentHouseIndex}`);
+        if (item) {
+            item.classList.remove('current');
+            item.classList.add('completed');
+            item.querySelector('.hstatus').textContent = '✅ Collected';
+        }
+
+        currentHouseIndex++;
+        isPaused = false;
+        document.getElementById('collectBtn').disabled = true;
+
+        updateProgress();
+
+        // All houses done → head to depot
+        if (currentHouseIndex >= routeData.assigned_houses.length) {
+            document.getElementById('statusText').textContent = 'All collected! Returning to depot...';
+            isMoving = true;
+            scheduleMove();
+            return;
+        }
+
+        document.getElementById('statusText').textContent = 'Moving to next house...';
+        isMoving = true;
+        scheduleMove();
+    }
+
+    // ─── Finish route ─────────────────────────────────────────────────────────
+    function finishRoute() {
+        isMoving = false;
+        updateTruckMarker(DEPOT[0], DEPOT[1]);
+        syncToBackend(DEPOT[0], DEPOT[1]);
+        // Snap to depot coords
+        document.getElementById('collectBtn').disabled = true;
+        document.getElementById('statusText').textContent = '✅ Route complete! Back at depot.';
+        updateProgress();
+    }
+
+    // ─── Update truck marker on driver map ───────────────────────────────────
+    function updateTruckMarker(lat, lng) {
+        if (truckMarker) {
+            truckMarker.setLatLng([lat, lng]);
+        } else {
+            truckMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<div style="background:#dc2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🚛</div>',
+                    iconSize: [36, 36], iconAnchor: [18, 18], className: ''
+                })
+            }).addTo(map);
+        }
+        document.getElementById('coordsDisplay').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+
+    // ─── Sync position to backend (admin sees this) ───────────────────────────
+    function syncToBackend(lat, lng) {
+        fetch('/api/update_truck_position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                truck_id: currentTruckId,
+                lat: lat,
+                lng: lng,
+                pathIndex: pathIndex,
+                stopped: isPaused
+            })
+        }).catch(() => {});
+    }
+
+    // ─── UI helpers ───────────────────────────────────────────────────────────
+    function updateProgress() {
+        const total = routeData ? routeData.assigned_houses.length : 0;
+        const done = currentHouseIndex;
+        document.getElementById('progressDisplay').textContent = `${done}/${total}`;
+        document.getElementById('progressBar').style.width = total > 0 ? `${(done / total) * 100}%` : '0%';
+    }
+
+    function highlightCurrentHouse(index) {
+        document.querySelectorAll('.house-item').forEach(el => el.classList.remove('current'));
+        const el = document.getElementById(`hitem-${index}`);
+        if (el) {
+            el.classList.add('current');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function showMsg(id, text, type) {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = `msg msg-${type}`;
+        el.style.display = 'block';
+    }
+
+    // ─── Event listeners ──────────────────────────────────────────────────────
+    document.getElementById('startBtn').addEventListener('click', startRoute);
+    document.getElementById('collectBtn').addEventListener('click', collectAndNext);
+
+    // ─── Poll for reset signal ────────────────────────────────────────────────
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/system_status');
+            const data = await res.json();
+            if (data.reset === true) location.reload();
+        } catch (e) {}
+    }, 2000);
+
+    // ─── Poll to load route if not loaded yet ─────────────────────────────────
+    setInterval(() => {
+        if (!routeData) loadRoute();
+    }, 3000);
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    window.onload = () => {
+        initMap();
+        loadRoute();
+    };
+    </script>
+</body>
+</html>

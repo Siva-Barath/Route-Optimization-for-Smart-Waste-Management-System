@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Management - User Portal</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 25px;
+            gap: 10px;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: #f3f4f6;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .welcome-section {
+            text-align: center;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .reporting-status {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #dc2626;
+            margin: 10px 0;
+        }
+        .garbage-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .map-container-large {
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        .status-message {
+            background: #10b981;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Section -->
+        <div id="authSection" class="card">
+            <div class="auth-tabs">
+                <button class="tab active" onclick="showAuthChoice('login')">Login</button>
+                <button class="tab" onclick="showAuthChoice('register')">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="loginForm" class="hidden">
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" id="loginPhone" class="form-input" placeholder="Enter your phone number">
+                </div>
+                <button class="btn btn-primary" onclick="login()">🔑 Login</button>
+            </div>
+            
+            <!-- Register Form -->
+            <div id="registerForm">
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="registerName" class="form-input" placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" id="registerPhone" class="form-input" placeholder="Enter your phone number">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input type="text" id="registerAddress" class="form-input" placeholder="Enter your address">
+                </div>
+                
+                <!-- Map Section -->
+                <div class="form-group">
+                    <label class="form-label">📍 Select Your Location (Click on map)</label>
+                    <div id="registerMap" class="map-container-large"></div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="completeRegistration()" disabled id="completeRegBtn">✅ Complete Registration</button>
+            </div>
+        </div>
+        
+        <!-- User Section -->
+        <div id="userSection" class="card" style="display:none;">
+            <div class="welcome-section">
+                <h2>👋 Welcome, <span id="userName">User</span>!</h2>
+                <p>Your House ID: <strong id="userHouseId">-</strong></p>
+                <p>Help us keep Delhi clean by reporting your garbage status daily.</p>
+            </div>
+            
+            <!-- Reporting Status -->
+            <div id="reportingStatus" class="reporting-status">
+                <h3>📊 Reporting Window Status</h3>
+                <div id="statusText">Checking...</div>
+                <div id="timerDisplay" class="timer">--:--</div>
+            </div>
+            
+            <!-- Garbage Reporting -->
+            <div id="garbageSection" style="display: none;">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; text-align: center;">
+                    🗑️ Do you have garbage for collection today?
+                </h3>
+                <div class="garbage-buttons">
+                    <button id="yesBtn" class="btn btn-success" onclick="reportGarbage(true)">
+                        ✅ Yes, Collect Garbage
+                    </button>
+                    <button id="noBtn" class="btn btn-danger" onclick="reportGarbage(false)">
+                        ❌ No Garbage Today
+                    </button>
+                </div>
+            </div>
+            
+            <div id="statusMessage" class="status-message"></div>
+            
+            <button class="btn btn-secondary" style="margin-top: 16px; background: #6B7280;" onclick="logout()">
+                🚪 Logout
+            </button>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Force show registration tab on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            showAuthChoice('register');
+        });
+        
+        let currentUser = null;
+        let reportingTimer = null;
+        let timeRemaining = 0;
+        let map = null;
+        let selectedMarker = null;
+        let selectedLatLng = null;
+        
+        // Simple state function to switch to user app
+        function goToUserApp(user) {
+            console.log("Switching to user app with user:", user);
+
+            // Hide auth section
+            document.getElementById("authSection").style.display = "none";
+
+            // Show user section
+            document.getElementById("userSection").style.display = "block";
+
+            // Set user info
+            document.getElementById("userName").innerText = user.name || 'User';
+            document.getElementById("userHouseId").innerText = user.id || '-';
+            
+            // 🔥 CRITICAL: Set currentUser for reporting to work
+            currentUser = user;
+            console.log("✅ currentUser set to:", currentUser);
+
+            // Start syncing
+            checkReportingStatus();
+        }
+        
+        // Show auth choice
+        function showAuthChoice(choice) {
+            console.log("=== SHOW AUTH CHOICE ===");
+            console.log("Choice:", choice);
+            
+            const tabs = document.querySelectorAll('.tab');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            console.log("Tabs found:", tabs.length);
+            console.log("Login form:", !!loginForm);
+            console.log("Register form:", !!registerForm);
+            
+            if (!tabs || tabs.length < 2 || !loginForm || !registerForm) {
+                console.error("❌ DOM elements not found");
+                return;
+            }
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (choice === 'login') {
+                console.log("🔑 Showing login form");
+                tabs[0].classList.add('active');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+            } else if (choice === 'register') {
+                console.log("📝 Showing register form");
+                tabs[1].classList.add('active');
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                
+                // Initialize map when register tab is shown
+                setTimeout(() => {
+                    if (!map) {
+                        map = L.map('registerMap').setView([28.6139, 77.2090], 12);
+                        
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors'
+                        }).addTo(map);
+                        
+                        // Add click handler
+                        map.on('click', function(e) {
+                            console.log('Map clicked:', e.latlng);
+                            
+                            if (selectedMarker) {
+                                map.removeLayer(selectedMarker);
+                            }
+                            
+                            selectedLatLng = e.latlng;
+                            console.log('selectedLatLng set to:', selectedLatLng);
+                            
+                            selectedMarker = L.marker([selectedLatLng.lat, selectedLatLng.lng], {
+                                icon: L.divIcon({
+                                    html: '<div style="background:#10B981;width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+                                    iconSize: [20,20], iconAnchor: [10,10], className: ''
+                                })
+                            }).addTo(map);
+                            
+                            console.log('Enabling complete registration button');
+                            document.getElementById('completeRegBtn').disabled = false;
+                        });
+                    }
+                }, 100);
+            } else {
+                console.error("❌ Invalid choice:", choice);
+            }
+        }
+        
+        // Clean registration function
+        function completeRegistration() {
+            console.log("=== COMPLETE REGISTRATION CALLED ===");
+            console.log("selectedLatLng:", selectedLatLng);
+            console.log("Map exists:", !!map);
+            
+            const name = document.getElementById("registerName").value;
+            const phone = document.getElementById("registerPhone").value;
+            const address = document.getElementById("registerAddress").value;
+            const btn = document.getElementById("completeRegBtn");
+            
+            console.log("Form values - Name:", name, "Phone:", phone, "Address:", address);
+            console.log("Button element:", btn);
+
+            if (!selectedLatLng) {
+                console.log("❌ No location selected");
+                alert("Select location on map!");
+                return;
+            }
+
+            if (!name || !phone) {
+                console.log("❌ Missing name or phone");
+                alert("Fill name and phone!");
+                return;
+            }
+            
+            console.log("✅ All validations passed, proceeding with registration...");
+            btn.disabled = true;
+            btn.textContent = "🔄 Registering...";
+
+            fetch('/api/register_house', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    phone: phone,
+                    address: address || "Delhi", // Default if empty
+                    lat: selectedLatLng.lat,
+                    lng: selectedLatLng.lng
+                })
+            })
+            .then(res => {
+                console.log("Registration response status:", res.status);
+                return res.json();
+            })
+            .then(data => {
+                console.log("=== REGISTRATION RESPONSE ===");
+                console.log("Full response data:", data);
+                console.log("Success:", data.success);
+                console.log("House data:", data.house);
+                
+                if (data.success && data.house) {
+                    alert("Registration successful!");
+                    
+                    // ✅ THIS IS THE ONLY REDIRECT
+                    goToUserApp(data.house);
+                } else {
+                    console.log("❌ Registration failed:", data.error);
+                    alert(`Registration failed: ${data.error || 'Unknown error'}`);
+                    btn.disabled = false;
+                    btn.textContent = "✅ Complete Registration";
+                }
+            })
+            .catch(err => {
+                console.error("=== REGISTRATION ERROR ===");
+                console.error("Network error:", err);
+                alert("Error occurred during registration");
+                btn.disabled = false;
+                btn.textContent = "✅ Complete Registration";
+            });
+        }
+        
+        // Simple login function
+        function login() {
+            const phone = document.getElementById('loginPhone').value.trim();
+            
+            if (!phone) {
+                alert('Please enter phone number');
+                return;
+            }
+            
+            fetch('/api/login_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    goToUserApp(data.user);
+                } else {
+                    alert(`Login failed: ${data.error}`);
+                }
+            })
+            .catch(err => {
+                console.error('Login error:', err);
+                alert('Network error. Please try again.');
+            });
+        }
+        
+        // Simple logout function
+        function logout() {
+            currentUser = null;
+            document.getElementById("authSection").style.display = "block";
+            document.getElementById("userSection").style.display = "none";
+            document.getElementById("loginPhone").value = "";
+            document.getElementById("registerName").value = "";
+            document.getElementById("registerPhone").value = "";
+            document.getElementById("registerAddress").value = "";
+            alert("Logged out successfully");
+        }
+        
+        // 🔥 Backend-controlled timer sync (same as admin)
+        function syncTimer() {
+            fetch('/api/reporting_status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.active) {
+                        const minutes = Math.floor(data.time_left / 60);
+                        const seconds = data.time_left % 60;
+                        document.getElementById('timerDisplay').textContent = 
+                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        
+                        // Show garbage section when active
+                        document.getElementById('garbageSection').style.display = 'block';
+                        document.getElementById('statusText').textContent = '🟢 Reporting Window is OPEN';
+                    } else {
+                        document.getElementById('timerDisplay').textContent = '--:--';
+                        document.getElementById('garbageSection').style.display = 'none';
+                        document.getElementById('statusText').textContent = '🔴 Reporting Window is CLOSED';
+                    }
+                })
+                .catch(error => {
+                    console.error('Timer sync error:', error);
+                });
+        }
+        
+        // Check reporting status (simplified - just for initial load)
+        function checkReportingStatus() {
+            syncTimer(); // Use the same sync function
+        }
+        
+        // Report garbage
+        function reportGarbage(hasGarbage) {
+            const yesBtn = document.getElementById('yesBtn');
+            const noBtn = document.getElementById('noBtn');
+            
+            yesBtn.disabled = true;
+            noBtn.disabled = true;
+            
+            console.log("=== USER REPORTING GARBAGE ===");
+            console.log("Current user:", currentUser);
+            console.log("House ID:", currentUser.id);
+            console.log("Has garbage:", hasGarbage);
+            
+            const payload = {
+                id: currentUser.id,
+                reported: hasGarbage
+            };
+            
+            console.log("Sending payload:", payload);
+            
+            fetch('/api/report_garbage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => {
+                console.log("Response status:", res.status);
+                return res.json();
+            })
+            .then(data => {
+                console.log("=== USER REPORT RESPONSE ===");
+                console.log("Full response data:", data);
+                console.log("Success:", data.success);
+                console.log("Status:", data.status);
+                
+                if (data.success) {
+                    alert(hasGarbage ? 'Garbage reported for collection' : 'No garbage reported');
+                    
+                    // Don't hide buttons - just disable them for this user
+                    // Other users should still be able to report
+                    yesBtn.textContent = '✅ Reported';
+                    noBtn.textContent = '❌ Reported';
+                    
+                    // 🔥 IMPORTANT: Trigger admin refresh by updating global state
+                    console.log("🔥 User reported garbage - admin should see update within 1 second");
+                } else {
+                    console.error("❌ Report failed:", data.error);
+                    alert(`Failed: ${data.error}`);
+                    yesBtn.disabled = false;
+                    noBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error("=== USER REPORT ERROR ===");
+                console.error("Network error:", error);
+                alert('Network error. Please try again.');
+                yesBtn.disabled = false;
+                noBtn.disabled = false;
+            });
+        }
+        
+        // Check status every 5 seconds for houses, sync timer every second
+        setInterval(checkReportingStatus, 5000);  // House status polling
+        setInterval(syncTimer, 1000);             // Timer sync every second
+    </script>
+</body>
+</html>

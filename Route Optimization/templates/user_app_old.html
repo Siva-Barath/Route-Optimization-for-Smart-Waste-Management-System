@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Collection - Citizen App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #111827;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+        
+        .logo p {
+            color: #6B7280;
+            font-size: 14px;
+        }
+        
+        .auth-section {
+            margin-bottom: 24px;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 24px;
+            background: #F3F4F6;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 8px 16px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: #6B7280;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #111827;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #7C3AED;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #7C3AED;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #6D28D9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #DC2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .user-panel {
+            display: none;
+        }
+        
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #F0FDF4;
+            border-radius: 8px;
+            border: 1px solid #10B981;
+        }
+        
+        .welcome-section h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #065F46;
+            margin-bottom: 8px;
+        }
+        
+        .welcome-section p {
+            color: #047857;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .reporting-status {
+            background: #FEF3C7;
+            border: 1px solid #F59E0B;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .reporting-status.active {
+            background: #D1FAE5;
+            border-color: #10B981;
+        }
+        
+        .reporting-status h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .timer {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
+        
+        .garbage-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .status-success {
+            background: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #10B981;
+        }
+        
+        .status-error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #EF4444;
+        }
+        
+        .status-info {
+            background: #DBEAFE;
+            color: #1E40AF;
+            border: 1px solid #3B82F6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <!-- Logo Section -->
+            <div class="logo">
+                <h1>🗑️ Smart Waste</h1>
+                <p>Delhi Municipal Collection System</p>
+            </div>
+            
+            <!-- Auth Section -->
+            <div id="authSection" class="auth-section">
+                <div class="auth-tabs">
+                    <button class="tab active" onclick="showTab('login')">Login</button>
+                    <button class="tab" onclick="showTab('register')">Register</button>
+                </div>
+                
+                <!-- Login Form -->
+                <div id="loginForm" class="form-content">
+                    <div class="form-group">
+                        <label class="form-label">House ID</label>
+                        <input type="text" id="loginHouseId" class="form-input" placeholder="Enter your House ID">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" id="loginPhone" class="form-input" placeholder="Enter your phone number">
+                    </div>
+                    <button class="btn btn-primary" onclick="login()">🚪 Login</button>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="registerForm" class="form-content" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Your Name</label>
+                        <input type="text" id="registerName" class="form-input" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" id="registerPhone" class="form-input" placeholder="Enter your phone number">
+                    </div>
+                    <button class="btn btn-primary" onclick="register()">📝 Register House</button>
+                </div>
+            </div>
+            
+            <!-- User Panel -->
+            <div id="userPanel" class="user-panel">
+                <div class="welcome-section">
+                    <h2>👋 Welcome, <span id="userName">User</span>!</h2>
+                    <p>Your House ID: <strong id="userHouseId">-</strong></p>
+                    <p>Help us keep Delhi clean by reporting your garbage status daily.</p>
+                </div>
+                
+                <!-- Reporting Status -->
+                <div id="reportingStatus" class="reporting-status">
+                    <h3>📊 Reporting Window Status</h3>
+                    <div id="statusText">Checking...</div>
+                    <div id="timerDisplay" class="timer">--:--</div>
+                </div>
+                
+                <!-- Garbage Reporting -->
+                <div id="garbageSection" style="display: none;">
+                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; text-align: center;">
+                        🗑️ Do you have garbage for collection today?
+                    </h3>
+                    <div class="garbage-buttons">
+                        <button id="yesBtn" class="btn btn-success" onclick="reportGarbage(true)">
+                            ✅ Yes, Collect Garbage
+                        </button>
+                        <button id="noBtn" class="btn btn-danger" onclick="reportGarbage(false)">
+                            ❌ No Garbage Today
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="statusMessage" class="status-message"></div>
+                
+                <button class="btn btn-primary" style="margin-top: 16px; background: #6B7280;" onclick="logout()">
+                    🚪 Logout
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentUser = null;
+        let reportingTimer = null;
+        let timeRemaining = 0;
+        
+        // Tab switching
+        function showTab(tab) {
+            const tabs = document.querySelectorAll('.tab');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'login') {
+                tabs[0].classList.add('active');
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            } else {
+                tabs[1].classList.add('active');
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+            }
+        }
+        
+        // Login function
+        async function login() {
+            const houseId = document.getElementById('loginHouseId').value.trim();
+            const phone = document.getElementById('loginPhone').value.trim();
+            
+            if (!houseId || !phone) {
+                showStatus('Please fill all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/login_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ house_id: houseId, phone: phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    showUserPanel();
+                    checkReportingStatus();
+                } else {
+                    showStatus(data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Register function
+        async function register() {
+            const name = document.getElementById('registerName').value.trim();
+            const phone = document.getElementById('registerPhone').value.trim();
+            
+            if (!name || !phone) {
+                showStatus('Please fill all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/register_house', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.house;
+                    showUserPanel();
+                    showStatus(`✅ Registered successfully! Your House ID: ${data.house.id}`, 'success');
+                    checkReportingStatus();
+                } else {
+                    showStatus(data.error || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Show user panel
+        function showUserPanel() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('userPanel').style.display = 'block';
+            
+            if (currentUser) {
+                document.getElementById('userName').textContent = currentUser.name || 'User';
+                document.getElementById('userHouseId').textContent = currentUser.id || '-';
+            }
+        }
+        
+        // Check reporting status
+        async function checkReportingStatus() {
+            try {
+                const response = await fetch('/api/get_simulation_status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const sim = data.simulation;
+                    updateReportingUI(sim.reporting_active, sim.reporting_deadline);
+                }
+            } catch (error) {
+                console.error('Error checking reporting status:', error);
+            }
+        }
+        
+        // Update reporting UI
+        function updateReportingUI(isActive, deadline) {
+            const statusDiv = document.getElementById('reportingStatus');
+            const statusText = document.getElementById('statusText');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const garbageSection = document.getElementById('garbageSection');
+            
+            if (isActive) {
+                statusDiv.classList.add('active');
+                statusText.textContent = '🟢 Reporting Window is OPEN';
+                garbageSection.style.display = 'block';
+                
+                if (deadline) {
+                    startTimer(deadline);
+                }
+            } else {
+                statusDiv.classList.remove('active');
+                statusText.textContent = '🔴 Reporting Window is CLOSED';
+                garbageSection.style.display = 'none';
+                stopTimer();
+                timerDisplay.textContent = '--:--';
+            }
+        }
+        
+        // Start timer
+        function startTimer(deadline) {
+            stopTimer();
+            
+            const updateTimer = () => {
+                const now = Math.floor(Date.now() / 1000);
+                timeRemaining = Math.max(0, deadline - now);
+                
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                document.getElementById('timerDisplay').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeRemaining <= 0) {
+                    stopTimer();
+                    checkReportingStatus(); // Recheck status
+                }
+            };
+            
+            updateTimer();
+            reportingTimer = setInterval(updateTimer, 1000);
+        }
+        
+        // Stop timer
+        function stopTimer() {
+            if (reportingTimer) {
+                clearInterval(reportingTimer);
+                reportingTimer = null;
+            }
+        }
+        
+        // Report garbage
+        async function reportGarbage(hasGarbage) {
+            if (!currentUser) {
+                showStatus('Please login first', 'error');
+                return;
+            }
+            
+            const yesBtn = document.getElementById('yesBtn');
+            const noBtn = document.getElementById('noBtn');
+            
+            yesBtn.disabled = true;
+            noBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/report_garbage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        house_id: currentUser.id,
+                        reported: hasGarbage
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus(
+                        `✅ ${hasGarbage ? 'Garbage reported for collection' : 'No garbage reported'}`, 
+                        'success'
+                    );
+                    
+                    // Hide buttons after successful report
+                    setTimeout(() => {
+                        document.getElementById('garbageSection').style.display = 'none';
+                    }, 2000);
+                } else {
+                    showStatus(`❌ Failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error. Please try again.', 'error');
+            } finally {
+                yesBtn.disabled = false;
+                noBtn.disabled = false;
+            }
+        }
+        
+        // Logout
+        function logout() {
+            currentUser = null;
+            stopTimer();
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('userPanel').style.display = 'none';
+            document.getElementById('loginHouseId').value = '';
+            document.getElementById('loginPhone').value = '';
+            document.getElementById('registerName').value = '';
+            document.getElementById('registerPhone').value = '';
+            showStatus('Logged out successfully', 'info');
+        }
+        
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Check status every 5 seconds
+        setInterval(checkReportingStatus, 5000);
+    </script>
+</body>
+</html>

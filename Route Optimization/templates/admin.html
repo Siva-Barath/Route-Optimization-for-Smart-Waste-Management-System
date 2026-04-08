@@ -65,6 +65,14 @@
             50% { opacity: 0.5; }
         }
         
+        .marker-pulse {
+            animation: pulse-marker 0.3s ease-out;
+        }
+        
+        .truck-icon {
+            filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+        }
+        
         /* Main Layout */
         .main-container {
             display: flex;
@@ -164,6 +172,15 @@
             background: #1F2937;
         }
         
+        .btn-warning {
+            background: #F59E0B;
+            color: white;
+        }
+        
+        .btn-warning:hover:not(:disabled) {
+            background: #D97706;
+        }
+        
         .btn-success {
             background: #10B981;
             color: white;
@@ -259,6 +276,88 @@
         .truck-marker {
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
         }
+
+        .truck-stat-card {
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid;
+        }
+
+        .truck-stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .truck-stat-name {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .efficiency-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .truck-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+
+        .truck-stat-item {
+            text-align: center;
+        }
+
+        .truck-stat-label {
+            font-size: 10px;
+            color: #6B7280;
+        }
+
+        .truck-stat-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        /* Animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+            }
+            50% {
+                transform: scale(1.2);
+                box-shadow: 0 4px 16px rgba(59, 130, 246, 0.6);
+            }
+        }
     </style>
 </head>
 <body>
@@ -268,9 +367,14 @@
             <div class="header-title">Smart Waste Operations Dashboard</div>
             <div class="header-subtitle">Municipal Waste Management System</div>
         </div>
-        <div class="system-status">
-            <div class="status-dot"></div>
-            <span id="systemStatus">System Active</span>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <button onclick="window.open('/app', '_blank')" class="btn btn-secondary" style="padding: 8px 16px; background: #10B981; color: white; border-radius: 6px; font-size: 14px; border: none; cursor: pointer;">
+                📱 Main App
+            </button>
+            <div class="system-status">
+                <div class="status-dot"></div>
+                <span id="systemStatus">System Active</span>
+            </div>
         </div>
     </div>
     
@@ -303,31 +407,60 @@
             
             <!-- Route Metrics -->
             <div class="card" id="routeMetricsCard" style="display:none;">
-                <div class="card-title">📊 Route Metrics</div>
-                <div class="route-metrics">
+                <div class="card-title">📊 Fleet Metrics</div>
+                <!-- Summary row -->
+                <div class="route-metrics" style="margin-bottom:12px;">
                     <div class="metric-box">
-                        <div class="metric-label">Distance</div>
+                        <div class="metric-label">Total Distance</div>
                         <div class="metric-value" id="routeDistance">-</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">Stops</div>
+                        <div class="metric-label">Total Stops</div>
                         <div class="metric-value" id="routeStops">-</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">Efficiency</div>
+                        <div class="metric-label">Avg Efficiency</div>
                         <div class="metric-value" id="routeEfficiency">-</div>
                     </div>
                 </div>
+                <!-- Fuel & CO2 savings -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;color:#059669;font-weight:600;">⛽ Fuel Saved</div>
+                        <div style="font-size:18px;font-weight:700;color:#059669;" id="fuelSaved">-</div>
+                    </div>
+                    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;color:#2563EB;font-weight:600;">🌿 CO₂ Reduced</div>
+                        <div style="font-size:18px;font-weight:700;color:#2563EB;" id="co2Reduced">-</div>
+                    </div>
+                </div>
+                <!-- Per-truck breakdown -->
+                <div id="perTruckMetrics"></div>
             </div>
             
             <!-- System Controls -->
             <div class="card">
                 <div class="card-title">⚙️ System Controls</div>
-                <button id="generateCityBtn" class="btn btn-primary">Generate City</button>
-                <button id="startReportingBtn" class="btn btn-secondary" disabled>Start Reporting Window</button>
-                <button id="optimizeRouteBtn" class="btn btn-success" disabled>Optimize Route</button>
-                <button id="spawnTruckBtn" class="btn btn-primary" disabled>Deploy Truck</button>
+                <button id="reportingToggleBtn" class="btn btn-primary w-100">
+                    🟢 Start Reporting Window
+                </button>
+                <div id="reportingTimer" style="margin-top: 12px; font-size: 14px; color: #6B7280; display: none;">
+                    Time remaining: <span id="timerDisplay">02:00</span>
+                </div>
+                <button id="optimizeRouteBtn" class="btn btn-success" disabled>Optimize Multi-Truck Routes</button>
+                <button id="spawnTruckBtn" class="btn btn-primary" disabled>Deploy Truck Fleet</button>
                 <button id="resetBtn" class="btn btn-secondary">Reset System</button>
+                <button id="driverAppBtn" class="btn btn-warning" onclick="openDriverApp()">🚛 Open Driver App</button>
+                <button class="btn" style="background:#0891B2;color:white;" onclick="window.open('/history','_blank')">📋 Collection History</button>
+                
+                <!-- 🔥 PROFESSIONAL: View Toggle (only visible after optimization) -->
+                <div id="viewModeToggle" style="margin-top: 12px; padding: 8px; background: #F3F4F6; border-radius: 8px; display: none;">
+                    <label style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">View Mode:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="viewAllBtn" class="btn btn-sm" style="background: #3B82F6; color: white; border: none; padding: 4px 8px; font-size: 12px;">All Houses</button>
+                        <button id="viewOptimizedBtn" class="btn btn-sm" style="background: #E5E7EB; color: #374151; border: none; padding: 4px 8px; font-size: 12px;">Optimized Only</button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -338,133 +471,567 @@
             <!-- Fleet Status Overlay -->
             <div class="fleet-status" id="fleetStatus" style="display:none;">
                 <div class="fleet-status-title">🚛 Fleet Status</div>
-                <div class="fleet-info"><strong>Status:</strong> <span id="truckStatus">Active</span></div>
-                <div class="fleet-info"><strong>Progress:</strong> <span id="truckProgress">0%</span></div>
+                <div class="fleet-info"><strong>Active Trucks:</strong> <span id="activeTrucksCount">0</span></div>
+                <div class="fleet-info"><strong>Overall Progress:</strong> <span id="overallProgress">0%</span></div>
                 <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    <div class="progress-fill" id="overallProgressFill" style="width: 0%"></div>
+                </div>
+                
+                <!-- Individual Truck Status -->
+                <div id="individualTruckStatus" style="margin-top: 15px;">
+                    <div class="fleet-status-title" style="font-size: 14px;">🚛 Individual Trucks</div>
+                    <div id="truckStatusList"></div>
+                </div>
+            </div>
+            
+            <!-- Map Legend -->
+            <div class="map-legend" style="position: absolute; bottom: 20px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000;">
+                <div style="font-weight: bold; margin-bottom: 10px; font-size: 14px;">📍 Legend</div>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #F97316; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🏠</div>
+                        <span>Garbage House</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #6B7280; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🏠</div>
+                        <span>No Report</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 4px; background: #F97316; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🗑️</div>
+                        <span>Bin Full (IoT)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 4px; background: #6B7280; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🗑️</div>
+                        <span>Bin Empty</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #10B981; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">✅</div>
+                        <span>Collected</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 4px; background: #DC2626; border-radius: 2px;"></div>
+                        <span>Truck Route</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #EF4444; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🏢</div>
+                        <span>Depot</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #7C3AED; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🏭</div>
+                        <span>Processing Center</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #DC2626; border: 2px solid white; display:flex;align-items:center;justify-content:center;font-size:11px;">🚛</div>
+                        <span>Active Truck</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet-polylinedecorator/dist/leaflet.polylineDecorator.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    
     <script>
-        let map, markers = {}, routeLine = null, truckMarker = null;
+        let map, markers = {}, routeLines = {}, truckMarkers = {};
+        let cityGenerated = false;
+        let mapFitted = false;
+        let zonePolygons = [];
+        // Tracks how far each truck has travelled along its route (pathIndex per truck)
+        // Used to shrink routes correctly without relying on polling
+        let truckPathProgress = {};
+        let routeFinished = {}; // tracks trucks that completed their route
         let simulationData = {
-            houses: [], garbageHouses: [], noGarbageHouses: [], collectedHouses: [],
-            optimizedRoute: null, truckPosition: null, reportingEnded: false,
-            routeOptimized: false, truckSpawned: false, cityGenerated: false
+            houses: [],
+            locations: [],
+            garbageHouses: [],
+            noGarbageHouses: [],
+            collectedHouses: [],
+            cityGenerated: false,
+            reportingActive: false,
+            reportingEnded: false,
+            routeOptimized: false,
+            multiTruckRoutes: [],
+            activeTrucks: []
         };
-        
+
         function initMap() {
-            map = L.map('map').setView([11.018, 76.972], 15);
+            console.log('🔍 Initializing map...');
+            map = L.map('map').setView([28.6139, 77.2090], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
+                attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+            
+            console.log('✅ Map initialized successfully');
         }
         
         function updateStatistics() {
-            document.getElementById('totalHouses').textContent = simulationData.houses.length;
-            document.getElementById('garbageHouses').textContent = simulationData.garbageHouses.length;
-            document.getElementById('collectedHouses').textContent = simulationData.collectedHouses.length;
-            document.getElementById('remainingHouses').textContent = 
-                simulationData.garbageHouses.length - simulationData.collectedHouses.length;
+            if (!simulationData.houses || simulationData.houses.length === 0) return;
+            const total = simulationData.houses.length;
+            const collected = simulationData.houses.filter(h => h.collected === true || permanentlyCollectedLocations.has(h.id)).length;
+            const pending = simulationData.houses.filter(h => (h.has_garbage === true) && !(h.collected === true || permanentlyCollectedLocations.has(h.id))).length;
+            const garbageReports = simulationData.houses.filter(h => h.has_garbage === true).length;
+            const totalEl = document.getElementById('totalHouses');
+            const remEl = document.getElementById('remainingHouses');
+            const colEl = document.getElementById('collectedHouses');
+            const garbEl = document.getElementById('garbageHouses');
+            if (totalEl) totalEl.innerText = total;
+            if (remEl) remEl.innerText = pending;
+            if (colEl) colEl.innerText = collected;
+            if (garbEl) garbEl.innerText = garbageReports;
         }
         
         function clearMarkers() {
-            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            Object.values(markers).forEach(m => { if (m && map.hasLayer(m)) map.removeLayer(m); });
+            // NOTE: routeLines and truckMarkers are NOT cleared here — managed separately
+            zonePolygons.forEach(p => { if (map.hasLayer(p)) map.removeLayer(p); });
+            zonePolygons = [];
             markers = {};
-            if (routeLine) {
-                routeLine.forEach(line => map.removeLayer(line));
-                routeLine = null;
+        }
+
+        function makeHouseIcon(house) {
+            let html, size;
+            
+            // Determine base color based on source
+            const isLive = house.source === 'live';
+            const baseColor = isLive ? '#3B82F6' : '#6B7280'; // Blue for live, gray for preloaded
+            const iconSize = isLive ? 30 : 20; // Live houses slightly bigger
+            
+            if (house.collected === true) {
+                html = `<div style="background:#10B981;width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;">✅</div>`;
+                size = [28, 28];
+            } else if (house.status === 'reported' || house.has_garbage === true) {
+                // Reported garbage - show green
+                html = `<div style="background:#10B981;width:${iconSize + 4}px;height:${iconSize + 4}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-size:${isLive ? 14 : 12}px;">🗑️</div>`;
+                size = [iconSize + 4, iconSize + 4];
+            } else if (house.status === 'not_reported' && house.has_garbage === false) {
+                // Reported no garbage - show orange
+                html = `<div style="background:#FB923C;width:${iconSize - 4}px;height:${iconSize - 4}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-size:${isLive ? 12 : 10}px;">❌</div>`;
+                size = [iconSize - 4, iconSize - 4];
+            } else {
+                // Default state - show different based on source (not reported yet)
+                const shadow = isLive ? '0 2px 8px rgba(59,130,246,0.4)' : '0 1px 4px rgba(0,0,0,0.3)';
+                const emoji = isLive ? '🏠' : '🏠';
+                html = `<div style="background:${baseColor};width:${iconSize}px;height:${iconSize}px;border-radius:50%;border:2px solid white;box-shadow:${shadow};display:flex;align-items:center;justify-content:center;font-size:${isLive ? 12 : 10}px;">${emoji}</div>`;
+                size = [iconSize, iconSize];
             }
-            if (truckMarker) map.removeLayer(truckMarker);
+            return L.divIcon({ html, iconSize: size, iconAnchor: [size[0]/2, size[1]/2], className: '' });
+        }
+
+        function addHouseMarkers() {
+            console.log("=== addHouseMarkers CALLED ===");
+            console.log("Houses count:", simulationData.houses.length);
+            console.log("Map exists:", !!map);
+            
+            if (!map || !simulationData.houses || simulationData.houses.length === 0) {
+                console.log("❌ Early return - missing map or houses");
+                return;
+            }
+
+            // Remove old house layer
+            if (window.houseLayer) map.removeLayer(window.houseLayer);
+            window.houseLayer = L.layerGroup();
+            markers = {};
+
+            // Depot
+            const depotIcon = L.divIcon({
+                html: '<div style="background:#7C3AED;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(124,58,237,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;">🏢</div>',
+                iconSize: [40,40], iconAnchor: [20,20], className: ''
+            });
+            markers['depot'] = L.marker([28.6139, 77.2090], { icon: depotIcon }).addTo(window.houseLayer);
+
+            // Processing center
+            const procIcon = L.divIcon({
+                html: '<div style="background:#EF4444;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(239,68,68,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;">🏭</div>',
+                iconSize: [40,40], iconAnchor: [20,20], className: ''
+            });
+            markers['processing'] = L.marker([28.6410, 77.2190], { icon: procIcon }).addTo(window.houseLayer);
+
+            // Houses
+            simulationData.houses.forEach((house, index) => {
+                console.log(`Processing house ${index}: ${house.id}, lat: ${house.lat}, lng: ${house.lng}`);
+                
+                if (!house.lat || !house.lng) {
+                    console.log(`❌ Skipping house ${house.id} - missing coordinates`);
+                    return;
+                }
+                
+                console.log(`Creating marker for ${house.id} with type: ${house.type}, source: ${house.source}, status: ${house.status}`);
+                
+                try {
+                    // 🔥 Use location icon instead of house icon
+                    const icon = getLocationIcon(house);
+                    
+                    // 🔥 DEBUG LOG
+                    console.log("🏠 HOUSE DATA:", house);
+                    console.log("🎨 ICON COLOR:", icon);
+                    
+                    // 🔥 FIXED: Update existing marker instead of recreating
+                    if (markers[house.id]) {
+                        // Update existing marker icon
+                        markers[house.id].setIcon(icon);
+                        console.log(`✅ Updated existing marker for ${house.id}`);
+                    } else {
+                        // Create new marker
+                        const marker = L.marker([house.lat, house.lng], { icon: icon }).addTo(window.houseLayer);
+                        
+                        // 🔥 THIS FIXES CLICK ISSUE
+                        marker.on('click', function(e) {
+                            console.log("Clicked house:", house.id);
+                            toggleGarbageStatus(house.id);
+                        });
+                        
+                        markers[house.id] = marker;
+                        console.log(`✅ Created new marker for ${house.id}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ Error creating marker for ${house.id}:`, error);
+                }
+            });
+
+            console.log(`Total markers created: ${Object.keys(markers).length}`);
+            window.houseLayer.addTo(map);
+
+            if (!mapFitted) {
+                const bounds = simulationData.houses.map(h => [h.lat, h.lng]);
+                bounds.push([28.6139, 77.2090], [28.6410, 77.2190]);
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+                mapFitted = true;
+            }
         }
         
-        function addHouseMarkers() {
-            clearMarkers();
+        function drawOptimizedRoute(multiTruckRoutes) {
+            console.log("🔥 Drawing optimized routes...");
             
-            // Depot
-            markers['depot'] = L.marker([11.018, 76.972], {
-                icon: L.divIcon({
-                    html: '<div style="background:#7C3AED;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏢</div>',
-                    iconSize: [36, 36], iconAnchor: [18, 18]
-                })
-            }).addTo(map).bindPopup('Depot');
+            // Clear existing routes COMPLETELY
+            Object.values(routeLines).forEach(line => {
+                if (map.hasLayer(line)) map.removeLayer(line);
+            });
+            routeLines = {};
             
-            // Processing
-            markers['processing'] = L.marker([11.020, 76.975], {
-                icon: L.divIcon({
-                    html: '<div style="background:#EF4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏭</div>',
-                    iconSize: [36, 36], iconAnchor: [18, 18]
-                })
-            }).addTo(map).bindPopup('Processing Center');
+            // Also clear any decorator arrows
+            map.eachLayer((layer) => {
+                if (layer.options && layer.options.patterns) map.removeLayer(layer);
+            });
             
-            // Houses
-            simulationData.houses.forEach(house => {
-                let color = '#9CA3AF', icon = '🏠';
-                if (house.has_garbage === false) { color = '#EF4444'; icon = '❌'; }
-                else if (house.has_garbage === true) { color = '#10B981'; icon = '🗑️'; }
-                else if (house.collected) { color = '#F59E0B'; icon = '✅'; }
+            const truckColors = ['#DC2626', '#2563EB', '#059669', '#EA580C', '#7C3AED'];
+            
+            if (!multiTruckRoutes || multiTruckRoutes.length === 0) return;
+            
+            multiTruckRoutes.forEach((routeData, index) => {
+                const truckId = routeData.truck_id;
+                const routeCoordinates = routeData.route_coordinates;
+                const color = truckColors[index % truckColors.length];
                 
-                markers[house.id] = L.marker([house.lat, house.lng], {
-                    icon: L.divIcon({
-                        html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;">${icon}</div>`,
-                        iconSize: [28, 28], iconAnchor: [14, 14]
-                    })
+                if (!routeCoordinates || routeCoordinates.length === 0) return;
+
+                // Use local progress tracker — never reset from polling
+                const pathIndex = truckPathProgress[truckId] || 0;
+
+                // If truck finished, remove its route line entirely
+                if (routeFinished[truckId]) {
+                    if (routeLines[truckId] && map.hasLayer(routeLines[truckId])) {
+                        map.removeLayer(routeLines[truckId]);
+                    }
+                    delete routeLines[truckId];
+                    return;
+                }
+
+                const remainingPath = routeCoordinates.slice(pathIndex);
+                if (remainingPath.length < 2) return;
+
+                const leafletCoords = remainingPath.map(coord => [coord[0], coord[1]]);
+                
+                const routeLine = L.polyline(leafletCoords, {
+                    color: color,
+                    weight: 7,
+                    opacity: 0.95,
+                    smoothFactor: 1
                 }).addTo(map);
+                routeLine.bringToFront();
+                
+                L.polylineDecorator(routeLine, {
+                    patterns: [{
+                        offset: '10%', repeat: '15%',
+                        symbol: L.Symbol.arrowHead({
+                            pixelSize: 12, polygon: false,
+                            pathOptions: { color: 'white', weight: 3, opacity: 0.9 }
+                        })
+                    }]
+                }).addTo(map);
+                
+                routeLines[truckId] = routeLine;
             });
         }
         
-        function drawOptimizedRoute(route, routeCoordinates) {
-            if (routeLine) {
-                routeLine.forEach(line => map.removeLayer(line));
-            }
-            
-            const coordinates = routeCoordinates && routeCoordinates.length > 0 
-                ? routeCoordinates 
-                : route.map(point => [point.coords[0], point.coords[1]]);
-            
-            // Shadow/glow layer
-            const shadowLine = L.polyline(coordinates, {
-                color: '#C4B5FD',
-                weight: 8,
-                opacity: 0.35,
-                smoothFactor: 1
-            }).addTo(map);
-            
-            // Main dashed route
-            const mainLine = L.polyline(coordinates, {
-                color: '#7C3AED',
-                weight: 5,
-                opacity: 0.85,
-                dashArray: '8,10',
-                lineCap: 'round',
-                lineJoin: 'round',
-                smoothFactor: 1
-            }).addTo(map);
-            
-            routeLine = [shadowLine, mainLine];
-            
-            map.fitBounds(mainLine.getBounds(), { padding: [50, 50] });
-        }
-        
         function spawnTruck() {
-            if (truckMarker) map.removeLayer(truckMarker);
+            // 🔥 FIX: Check if truckMarkers exists before using
+            if (typeof truckMarkers !== 'undefined' && truckMarkers) {
+                Object.values(truckMarkers).forEach(marker => {
+                    if (marker.truck && map.hasLayer(marker.truck)) map.removeLayer(marker.truck);
+                    if (marker.label && map.hasLayer(marker.label)) map.removeLayer(marker.label);
+                });
+            }
+            truckMarkers = {};
+            if (typeof animationTimers !== 'undefined' && animationTimers) {
+                Object.values(animationTimers).forEach(t => clearTimeout(t));
+            }
+
+            const truckColors = ['#DC2626', '#2563EB', '#059669', '#EA580C', '#7C3AED'];
+
+            // Build per-truck progress rows in fleet status panel
+            const statusList = document.getElementById('truckStatusList');
+            statusList.innerHTML = '';
             
-            truckMarker = L.marker([11.018, 76.972], {
-                icon: L.divIcon({
-                    html: '<div style="background:#F59E0B;width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;transform-origin:center center;" id="truckIcon">🚛</div>',
-                    className: 'truck-marker',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20],
-                    popupAnchor: [0, -20]
-                })
-            }).addTo(map);
+            console.log('🔥 DEBUG: simulationData.activeTrucks:', simulationData.activeTrucks);
             
+            const activeTrucks = Array.isArray(simulationData.activeTrucks) ? simulationData.activeTrucks : [];
+            activeTrucks.forEach((truckId, index) => {
+                // 🚨 SKIP T1 - DRIVER WILL CONTROL
+                if (truckId === "T1") {
+                    console.log("🚛 Skipping T1 - driver app will control this truck");
+                    return;
+                }
+                
+                const routeData = simulationData.multiTruckRoutes.find(r => r.truck_id === truckId);
+                if (!routeData || !routeData.route_coordinates.length) return;
+
+                const color = truckColors[index % truckColors.length];
+                const firstCoord = routeData.route_coordinates[0];
+
+                const truckIcon = L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                    iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -20], className: 'truck-icon'
+                });
+                const truckMarker = L.marker([firstCoord[0], firstCoord[1]], { icon: truckIcon })
+                    .addTo(map);
+                const truckLabel = L.marker([firstCoord[0], firstCoord[1]], {
+                    icon: L.divIcon({
+                        html: `<div style="background:${color};color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">${truckId}</div>`,
+                        className: '', iconSize: [40, 16], iconAnchor: [20, -20]
+                    })
+                }).addTo(map);
+
+                truckMarkers[truckId] = { truck: truckMarker, label: truckLabel };
+
+                // Progress row
+                const row = document.createElement('div');
+                row.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.1);border-radius:4px;font-size:12px;';
+                row.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:bold;color:${color}">${truckId}</span>
+                        <span id="truckPct_${truckId}">0%</span>
+                    </div>
+                    <div class="progress-bar" style="height:4px;margin-top:4px;">
+                        <div id="truckBar_${truckId}" class="progress-fill" style="width:0%;background:${color};"></div>
+                    </div>`;
+                statusList.appendChild(row);
+
+                // Start frontend animation
+                animateTruck(truckId, routeData.route_coordinates, color);
+            });
+
+            // 🔥 NEW: Create T1 marker for driver control (STATIC)
+            if (activeTrucks.includes("T1")) {
+                console.log("🚛 Creating T1 marker for driver control");
+                
+                // Get T1 route data
+                const t1RouteData = simulationData.multiTruckRoutes.find(r => r.truck_id === "T1");
+                let t1Position = [28.6410, 77.2190]; // Default: processing center
+                
+                if (t1RouteData && t1RouteData.route_coordinates && t1RouteData.route_coordinates.length > 0) {
+                    t1Position = t1RouteData.route_coordinates[0]; // First house in route
+                }
+                
+            // Create T1 truck marker — always start at DEPOT (processing center)
+                const t1Icon = L.divIcon({
+                    html: '<div style="background:#DC2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🚛</div>',
+                    iconSize: [36, 36], iconAnchor: [18, 18], className: 'driver-truck'
+                });
+                const t1StartPos = [28.6139, 77.2090]; // Processing center (correct start)
+                const t1Marker = L.marker(t1StartPos, { icon: t1Icon }).addTo(map);
+                const t1Label = L.marker(t1StartPos, {
+                    icon: L.divIcon({
+                        html: '<div style="background:#DC2626;color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">T1</div>',
+                        className: '', iconSize: [40, 16], iconAnchor: [20, -20]
+                    })
+                }).addTo(map);
+                
+                truckMarkers["T1"] = { truck: t1Marker, label: t1Label };
+                
+                // Add T1 to fleet status
+                const t1Row = document.createElement('div');
+                t1Row.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(220,38,38,0.1);border-radius:4px;font-size:12px;';
+                t1Row.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:bold;color:#DC2626">T1 (Driver)</span>
+                        <span id="truckPct_T1">0%</span>
+                    </div>
+                    <div class="progress-bar" style="height:4px;margin-top:4px;">
+                        <div id="truckBar_T1" class="progress-fill" style="width:0%;background:#DC2626;"></div>
+                    </div>
+                `;
+                statusList.appendChild(t1Row);
+            }
+
             document.getElementById('fleetStatus').style.display = 'block';
+            document.getElementById('activeTrucksCount').textContent = activeTrucks.length;
         }
         
+        // ── Frontend truck animation (runs locally, no backend polling needed) ──
+        const animationTimers = {};
+
+        function animateTruck(truckId, routeCoords, color) {
+            let i = 0;
+            const total = routeCoords.length;
+
+            function step() {
+                if (i >= total) {
+                    // Mark finished — remove route line permanently
+                    routeFinished[truckId] = true;
+                    if (routeLines[truckId] && map.hasLayer(routeLines[truckId])) {
+                        map.removeLayer(routeLines[truckId]);
+                    }
+                    delete routeLines[truckId];
+                    if (truckMarkers[truckId]) {
+                        const el = truckMarkers[truckId].truck.getElement();
+                        if (el) el.style.filter = 'grayscale(1) opacity(0.5)';
+                    }
+                    updateOverallProgress();
+                    return;
+                }
+
+                // Update local progress tracker
+                truckPathProgress[truckId] = i;
+
+                const [lat, lng] = routeCoords[i];
+                const tm = truckMarkers[truckId];
+                if (tm) {
+                    if (i > 0) {
+                        const [pLat, pLng] = routeCoords[i - 1];
+                        const bearing = calculateBearing(pLat, pLng, lat, lng);
+                        const el = tm.truck.getElement();
+                        if (el) el.style.transform = `rotate(${bearing}deg)`;
+                    }
+                    tm.truck.setLatLng([lat, lng]);
+                    tm.label.setLatLng([lat, lng]);
+                    // Shrink route line directly — no redraw needed
+                    if (routeLines[truckId]) {
+                        routeLines[truckId].setLatLngs(routeCoords.slice(i).map(c => [c[0], c[1]]));
+                    }
+                }
+
+                // Collection detection for autonomous trucks (T2, T3...)
+                let collectionDelay = 0;
+                const collectableLocations = [
+                    ...(simulationData.garbageHouses || []),
+                    ...(simulationData.houses || []).filter(h => h.type === 'bin' && (h.status === 'FULL' || h.has_garbage === true))
+                ];
+
+                collectableLocations.forEach(location => {
+                    if (!location._collected && markers[location.id]) {
+                        const dist = map.distance([lat, lng], [location.lat, location.lng]);
+                        if (dist < 80) {
+                            location._collected = true;
+                            location.collected = true;
+                            simulationData.houses.forEach(h => { if (h.id === location.id) h.collected = true; });
+
+                            // Record in backend history for autonomous trucks
+                            fetch('/api/mark_house_complete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ house_id: location.id, truck_id: truckId })
+                            }).catch(() => {});
+
+                            const checkIcon = L.divIcon({
+                                html: `<div style="background:${location.type === 'bin' ? '#F97316' : '#10B981'};width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:13px;">✅</div>`,
+                                iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+                            });
+                            markers[location.id].setIcon(checkIcon);
+
+                            if (!simulationData.collectedHouses) simulationData.collectedHouses = [];
+                            if (!simulationData.collectedHouses.some(l => l.id === location.id)) {
+                                simulationData.collectedHouses.push(location);
+                                permanentlyCollectedLocations.add(location.id);
+                            }
+                            // Update left panel immediately
+                            updateStatistics();
+                            collectionDelay = 500;
+                        }
+                    }
+                });
+
+                const pct = Math.round((i / total) * 100);
+                const bar = document.getElementById(`truckBar_${truckId}`);
+                const lbl = document.getElementById(`truckPct_${truckId}`);
+                if (bar) bar.style.width = pct + '%';
+                if (lbl) lbl.textContent = pct + '%';
+                updateOverallProgress();
+
+                i++;
+                animationTimers[truckId] = setTimeout(step, 150 + collectionDelay);
+            }
+            step();
+        }
+
+        function updateOverallProgress() {
+            const trucks = Object.keys(truckMarkers);
+            if (!trucks.length) return;
+            let total = 0;
+            trucks.forEach(id => {
+                const bar = document.getElementById(`truckBar_${id}`);
+                if (bar) {
+                    const width = parseFloat(bar.style.width) || 0;
+                    total += Math.min(100, Math.max(0, width));
+                }
+            });
+            const avg = Math.round(total / trucks.length);
+            const safeAvg = Math.min(100, Math.max(0, avg));
+            document.getElementById('overallProgress').textContent = safeAvg + '%';
+            document.getElementById('overallProgressFill').style.width = safeAvg + '%';
+        }
+
+        function renderPerTruckMetrics(routes) {
+            const colors = ['#DC2626', '#2563EB', '#059669', '#EA580C', '#7C3AED'];
+            const container = document.getElementById('perTruckMetrics');
+            container.innerHTML = '';
+
+            routes.forEach((r, i) => {
+                const color = colors[i % colors.length];
+                const eff = r.efficiency_pct || 0;
+                const effColor = eff >= 70 ? '#059669' : eff >= 40 ? '#D97706' : '#DC2626';
+                const effLabel = eff >= 70 ? 'High' : eff >= 40 ? 'Medium' : 'Low';
+
+                const card = document.createElement('div');
+                card.className = 'truck-stat-card';
+                card.style.cssText = `border-left-color:${color}; background:${color}11;`;
+                card.innerHTML = `
+                    <div class="truck-stat-header">
+                        <span class="truck-stat-name" style="color:${color}">🚛 ${r.truck_id}</span>
+                        <span class="efficiency-badge" style="background:${effColor}">${effLabel} ${eff}%</span>
+                    </div>
+                    <div class="truck-stat-grid">
+                        <div class="truck-stat-item">
+                            <div class="truck-stat-label">🛣️ Distance</div>
+                            <div class="truck-stat-value">${r.total_distance_km}km</div>
+                        </div>
+                        <div class="truck-stat-item">
+                            <div class="truck-stat-label">📍 Stops</div>
+                            <div class="truck-stat-value">${r.houses_visited}</div>
+                        </div>
+                        <div class="truck-stat-item">
+                            <div class="truck-stat-label">⏱️ Est. Time</div>
+                            <div class="truck-stat-value">${r.estimated_time_min}min</div>
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
         function calculateBearing(lat1, lng1, lat2, lng2) {
             const dLng = (lng2 - lng1) * Math.PI / 180;
             const y = Math.sin(dLng) * Math.cos(lat2 * Math.PI / 180);
@@ -473,145 +1040,1014 @@
             return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
         }
         
-        async function checkSimulationStatus() {
-            try {
-                const response = await fetch('/api/get_simulation_status');
-                const data = await response.json();
-                
+        // 🔥 NEW: Get house icon based on source and status
+        function getLocationIcon(location) {
+            // 🔥 PRIORITY 1: collected MUST RETURN IMMEDIATELY
+            if (location.collected === true || permanentlyCollectedLocations.has(location.id)) {
+                return L.divIcon({
+                    html: `
+                    <div style="position:relative;width:28px;height:28px;">
+                        
+                        <!-- Base house/bin -->
+                        <div style="
+                            background: ${location.type === 'bin' ? '#F97316' : '#F97316'};
+                            width:28px;height:28px;
+                            border-radius:50%;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            border:2px solid white;
+                            font-size:14px;
+                            box-shadow:0 2px 6px rgba(0,0,0,0.2);
+                        ">${location.type === 'bin' ? '🗑️' : '🏠'}</div>
+                        
+                        <!-- Check overlay -->
+                        <div style="
+                            position:absolute;
+                            top:-4px;
+                            right:-4px;
+                            background:#10B981;
+                            width:14px;
+                            height:14px;
+                            border-radius:50%;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:10px;
+                            border:2px solid white;
+                            box-shadow:0 2px 4px rgba(0,0,0,0.3);
+                        ">✓</div>
+                    </div>
+                    `,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14],
+                    className: ''
+                });
+            }
+            
+            let color = '#6B7280'; // default (gray icon background)
+            let emoji = '🏠';
+            
+            // 🔥 PRIORITY 2: Check completed houses list
+            if (simulationData.completedHouses && simulationData.completedHouses.includes(location.id)) {
+                if (location.type === 'bin') {
+                    // 🟠 Orange checkmark for collected bins
+                    color = '#F97316';
+                    emoji = '✅';
+                } else {
+                    // 🟢 Green checkmark for collected houses
+                    color = '#10B981';
+                    emoji = '✅';
+                }
+            }
+
+            // 🔵 App registered houses
+            if (location.source === 'live') {
+                color = '#3B82F6';
+            }
+
+            // 🗑️ Community bins (different from houses)
+            if (location.type === 'bin') {
+                emoji = '🗑️';
+                color = '#6B7280'; // default gray
+
+                // IoT FULL — orange bin
+                if (location.status === 'FULL') {
+                    color = '#F97316';
+                }
+                // IoT EMPTY — force gray regardless of has_garbage
+                else if (location.status === 'EMPTY') {
+                    color = '#6B7280';
+                }
+                // Reported / admin marked
+                else if (location.status === 'reported' || location.status === 'admin_marked' || location.has_garbage === true) {
+                    color = '#F97316';
+                }
+
+                return L.divIcon({
+                    html: `<div style="background:${color};width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:16px;">${emoji}</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                    className: ''
+                });
+            }
+
+            // 🏠 Regular houses
+            if (location.type === 'house') {
+                // 🔥 FIXED: Use has_garbage field for orange - HOUSE EMOJI
+                if (location.has_garbage === true) {
+                    color = '#F97316'; // orange
+                    emoji = '🏠';  // 🔥 FIXED: Keep house emoji, just change color
+                }
+
+                // 🟢 ADMIN MARKED (during reporting window)
+                if (location.status === 'admin_marked') {
+                    color = '#22C55E'; // green
+                    emoji = '🏠';  // 🔥 NEW: Green house icon instead of checkmark
+                }
+
+                return L.divIcon({
+                    html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;">${emoji}</div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14],
+                    className: ''
+                });
+            }
+
+            // Default fallback
+            return L.divIcon({
+                html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;">${emoji}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
+                className: ''
+            });
+        }
+        
+        function toggleGarbageStatus(houseId) {
+            // Find current status
+            const house = simulationData.houses.find(h => h.id === houseId);
+            if (!house) {
+                console.log(`❌ House ${houseId} not found in simulationData`);
+                return;
+            }
+            
+            console.log(`🔧 Current status of ${houseId}: ${house.status}`);
+            
+            // 🔥 PROPER TOGGLE LOGIC: no_report -> admin_marked -> no_report
+            let newStatus;
+            
+            if (house.status === 'admin_marked') {
+                newStatus = 'no_report';
+            } else {
+                newStatus = 'admin_marked'; // 🟢 GREEN
+            }
+            
+            console.log("Sending to backend:", houseId, "new status:", newStatus);
+            
+            // Update via API (admin endpoint)
+            fetch('/api/update_garbage_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: houseId,  // 🔥 FIXED: use 'id' instead of 'house_id'
+                    status: newStatus === 'admin_marked'  // Send boolean for backend logic
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("Backend response:", data);
                 if (data.success) {
-                    const sim = data.simulation;
-                    
-                    // Load houses if available
-                    if (sim.houses && sim.houses.length > 0) {
-                        simulationData.houses = sim.houses;
-                        simulationData.cityGenerated = sim.city_generated || false;
-                        
-                        // Only update markers if houses changed
-                        if (Object.keys(markers).length === 0 || simulationData.houses.length !== Object.keys(markers).length - 2) {
-                            addHouseMarkers();
-                        }
-                    }
-                    
-                    // Update garbage houses
-                    if (sim.garbage_houses) {
-                        simulationData.garbageHouses = sim.garbage_houses;
-                    }
-                    if (sim.no_garbage_houses) {
-                        simulationData.noGarbageHouses = sim.no_garbage_houses;
-                    }
-                    if (sim.collected_houses) {
-                        simulationData.collectedHouses = sim.collected_houses;
-                    }
-                    
-                    // Update statistics
-                    updateStatistics();
-                    
-                    if (sim.reporting_ended && !simulationData.reportingEnded) {
-                        simulationData.reportingEnded = true;
-                        addHouseMarkers();
-                        document.getElementById('optimizeRouteBtn').disabled = false;
-                    }
-                    
-                    if (sim.truck_spawned && sim.truck_position && truckMarker) {
-                        const oldPos = simulationData.truckPosition;
-                        const newPos = sim.truck_position;
-                        
-                        truckMarker.setLatLng([newPos.lat, newPos.lng]);
-                        
-                        // Rotate truck to face direction of travel
-                        if (oldPos && (oldPos.lat !== newPos.lat || oldPos.lng !== newPos.lng)) {
-                            const bearing = calculateBearing(oldPos.lat, oldPos.lng, newPos.lat, newPos.lng);
-                            const truckIcon = document.getElementById('truckIcon');
-                            if (truckIcon) {
-                                truckIcon.style.transform = `rotate(${bearing}deg)`;
-                            }
-                        }
-                        
-                        simulationData.truckPosition = newPos;
-                        
-                        // Update progress
-                        if (sim.truck_road_index && sim.route_coordinates) {
-                            const progress = (sim.truck_road_index / sim.route_coordinates.length * 100).toFixed(0);
-                            document.getElementById('truckProgress').textContent = progress + '%';
-                            document.getElementById('progressFill').style.width = progress + '%';
-                        }
+                    console.log(`✅ Toggled ${houseId} to ${newStatus}`);
+                    // 🔥 Force refresh immediately - don't wait for polling
+                    checkSimulationStatus();
+                } else {
+                    console.error('❌ Failed to toggle status:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error toggling status:', error);
+            });
+        }
+        
+        function highlightNewLiveHouses(newCount) {
+            // Show notification for new houses
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: #3B82F6;
+                color: white;
+                padding: 16px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: 500;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            notification.innerHTML = `🏠 ${newCount} new house${newCount > 1 ? 's' : ''} registered!`;
+            document.body.appendChild(notification);
+            
+            // Remove notification after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+            
+            // Add pulse animation to new live houses
+            simulationData.houses.forEach(house => {
+                if (house.source === 'live' && markers[house.id]) {
+                    const marker = markers[house.id];
+                    const icon = marker.getElement();
+                    if (icon) {
+                        icon.style.animation = 'pulse 2s ease-in-out 3';
+                        setTimeout(() => {
+                            icon.style.animation = '';
+                        }, 6000);
                     }
                 }
-            } catch (error) {
-                console.error('Error:', error);
+            });
+        }
+        
+        // 🔥 Backend-controlled timer sync
+        function syncTimer() {
+            fetch('/api/reporting_status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.active) {
+                        const minutes = Math.floor(data.time_left / 60);
+                        const seconds = data.time_left % 60;
+                        document.getElementById('timerDisplay').textContent = 
+                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    } else {
+                        document.getElementById('timerDisplay').textContent = '--:--';
+                    }
+                })
+                .catch(error => {
+                    console.error('Timer sync error:', error);
+                });
+        }
+        
+        // Global reset flag — blocks all polling during reset
+        let isResetting = false;
+
+let permanentlyCollectedLocations = new Set();
+let notifiedBins = new Set();
+        
+        function showIoTNotification(binId, status) {
+            // Only show notifications for FULL status
+            if (status !== 'FULL') {
+                return;
+            }
+            
+            const notificationKey = `${binId}_${status}`;
+            
+            if (notifiedBins.has(notificationKey)) {
+                return; // Don't show duplicate notifications
+            }
+            
+            notifiedBins.add(notificationKey);
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: #DC2626;
+                color: white;
+                padding: 16px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: 500;
+                animation: slideInRight 0.3s ease-out;
+                max-width: 300px;
+            `;
+            
+            const emoji = '🚨';
+            const message = `${emoji} Community bin ${binId} is FULL!`;
+            
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">${emoji}</span>
+                    <div>
+                        <div style="font-weight: 600;">IoT Bin Update</div>
+                        <div style="font-size: 12px; opacity: 0.9;">${message}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove notification after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                    // Clean up from notified set after notification is gone
+                    notifiedBins.delete(notificationKey);
+                }, 300);
+            }, 5000);
+            
+            console.log(`🚨 IoT Notification: ${message}`);
+        }
+        
+        // 🔥 CHECK FOR IOT BIN UPDATES (GLOBAL - works even when reporting window is closed)
+        let lastKnownBinStatus = {}; // Track last known status of each bin
+        
+        function checkIoTBinUpdates() {
+            if (!simulationData.houses || simulationData.houses.length === 0) return;
+            
+            simulationData.houses.forEach(location => {
+                if (location.type === 'bin') {
+                    const currentStatus = location.status;
+                    const lastStatus = lastKnownBinStatus[location.id];
+                    
+                    // Only show notification if status changed to FULL (not EMPTY)
+                    if (currentStatus === 'FULL' && lastStatus !== 'FULL') {
+                        showIoTNotification(location.id, 'FULL');
+                        console.log(`🚨 IoT Notification: Community bin ${location.id} is FULL!`);
+                    }
+                    
+                    // Update last known status
+                    lastKnownBinStatus[location.id] = currentStatus;
+                }
+            });
+        }
+        
+        // 🔥 SMOOTH MOVEMENT FUNCTION (SUPER SMOOTH)
+        function smoothAdminMove(marker, toLatLng) {
+            const from = marker.getLatLng();
+
+            const frames = 10;
+            let i = 0;
+
+            const interval = setInterval(() => {
+                i++;
+
+                const lat = from.lat + (toLatLng.lat - from.lat) * (i / frames);
+                const lng = from.lng + (toLatLng.lng - from.lng) * (i / frames);
+
+                marker.setLatLng([lat, lng]);
+
+                if (i >= frames) clearInterval(interval);
+            }, 50); // 🔥 smooth animation
+        }
+
+        // 🔥 Update checkSimulationStatus to include IoT notification check
+        function checkSimulationStatus() {
+            if (isResetting) return;
+            fetch('/api/get_simulation_status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const sim = data.simulation;
+                        
+                        console.log("=== FULL API RESPONSE ===");
+                        console.log("API Response:", sim);
+                        console.log("sim.houses:", sim.houses);
+                        console.log("sim.houses length:", sim.houses?.length || 0);
+                        console.log("sim.locations:", sim.locations);
+                        
+                        // 🔥 FIXED: Load houses from multiple possible fields
+                        simulationData.houses = sim.houses || sim.locations || [];
+                        
+                        console.log("🔥 LOADED houses count:", simulationData.houses.length);
+                        console.log("🔥 LOADED houses type:", typeof simulationData.houses);
+                        console.log("🔥 LOADED houses is array:", Array.isArray(simulationData.houses));
+                        console.log("🔥 Sample house:", simulationData.houses[0]);
+                        
+                        // 🔥 CRITICAL FIX: Ensure has_garbage property is set correctly
+                        simulationData.houses.forEach(house => {
+                            if (house.status === 'garbage_reported' || house.status === 'has_garbage') {
+                                house.has_garbage = true;
+                            } else if (house.status === 'no_garbage_reported' || house.status === 'no_garbage') {
+                                house.has_garbage = false;
+                            }
+                            // Ensure collected property exists
+                            if (house.collected === undefined) {
+                                house.collected = false;
+                            }
+                        });
+                        
+                        console.log("🔥 After fixing properties:");
+                        console.log("🔥 Houses with garbage:", simulationData.houses.filter(h => h.has_garbage === true).length);
+                        console.log("🔥 Houses collected:", simulationData.houses.filter(h => h.collected === true).length);
+                        
+                        updateStatistics();
+
+                        // Update garbage/no-garbage house lists
+                        if (sim.garbage_houses) simulationData.garbageHouses = sim.garbage_houses;
+                        if (sim.no_garbage_houses) simulationData.noGarbageHouses = sim.no_garbage_houses;
+                        // 🔥 INCLUDE COMPLETED HOUSES IN API RESPONSE
+                        if (sim.completed_houses) simulationData.completedHouses = sim.completed_houses;
+                        else simulationData.completedHouses = [];
+                        
+                        // 🔥 DEBUG: Log completed houses state
+                        console.log(`🔍 Collected houses state: Frontend=${simulationData.completedHouses.length}, Backend=${sim.completed_houses ? sim.completed_houses.length : 0}`);
+                        if (sim.multi_truck_routes) simulationData.multiTruckRoutes = sim.multi_truck_routes;
+                        if (sim.active_trucks) simulationData.activeTrucks = sim.active_trucks;
+                        
+                        // T1 position updates handled by dedicated poller
+
+                        // Redraw routes only on first draw after optimization; after that, shrinking is handled live
+                        if (!window.routesDrawnOnce && simulationData.multiTruckRoutes && simulationData.multiTruckRoutes.length > 0 && simulationData.routeOptimized) {
+                            drawOptimizedRoute(simulationData.multiTruckRoutes);
+                            window.routesDrawnOnce = true;
+                        }
+
+                        // T2 COLLECTION SYNC
+                        if (sim.collected_houses && sim.collected_houses.length > 0) {
+                            const previousCompletedCount = simulationData.completedHouses.length;
+                            simulationData.completedHouses = sim.collected_houses;
+
+                            simulationData.houses.forEach(house => {
+                                if (sim.collected_houses.includes(house.id)) {
+                                    house.collected = true;
+                                }
+                            });
+
+                            sim.collected_houses.forEach(id => {
+                                permanentlyCollectedLocations.add(id);
+                            });
+
+                            updateStatistics();
+
+                            if (previousCompletedCount < sim.collected_houses.length) {
+                                sim.collected_houses.forEach(id => {
+                                    if (markers[id]) {
+                                        markers[id].setIcon(L.divIcon({
+                                            html: '<div style="background:#10B981;width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(16,185,129,0.6);display:flex;align-items:center;justify-content:center;font-size:13px;">✅</div>',
+                                            iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+                                        }));
+                                    }
+                                });
+                            }
+                        }
+
+                        // T1 marker is handled by the dedicated 500ms poller below
+                        // (updateTruckFromBackend interval)
+
+                        if (sim.reporting_ended && !simulationData.reportingEnded) {
+                            simulationData.reportingEnded = true;
+                            document.getElementById('optimizeRouteBtn').disabled = false;
+                            // Refresh icons once so garbage/no-garbage states show correctly
+                            addHouseMarkers();
+                        }
+
+                        // Load houses and render markers — RESPECT VIEW MODE
+                        if (simulationData.houses && simulationData.houses.length > 0) {
+                            const previousHouseCount = simulationData.houses.length;
+                            simulationData.cityGenerated = sim.city_generated || false;
+                            
+                            console.log("=== HOUSES UPDATE ===");
+                            console.log("Previous count:", previousHouseCount);
+                            console.log("New count:", simulationData.houses.length);
+                            console.log("Sample house:", simulationData.houses[0]);
+                            console.log("Current view mode:", viewMode);
+                            
+                            // FIXED: Clear + REBUILD BUT RESPECT VIEW MODE
+                            clearMarkers();
+                            addHouseMarkers();
+                            updateStatistics();
+                            
+                            // 🔥 CRITICAL: Re-apply view mode after refresh
+                            if (viewMode === 'optimized' && selectedHouseIds.size > 0) {
+                                console.log("🔄 Re-applying optimized view mode after refresh");
+                                updateHouseVisibility();
+                            }
+                            
+                            // 🔥 GLOBAL: Check for IoT bin updates (works even when reporting window is closed)
+                            checkIoTBinUpdates();
+                            
+                            // Highlight newly registered live houses
+                            if (simulationData.houses.length > previousHouseCount) {
+                                highlightNewLiveHouses(simulationData.houses.length - previousHouseCount);
+                            }
+                            updateStatistics();
+                        }
+
+                        // 🔥 FORCE CALCULATE PROGRESS FROM PATH INDEX (WORKS ALWAYS)
+                        if (sim.truck_positions && simulationData.multiTruckRoutes) {
+                            Object.entries(sim.truck_positions).forEach(([truckId, pos]) => {
+
+                                const route = simulationData.multiTruckRoutes.find(r => r.truck_id === truckId);
+                                if (!route || !route.route_coordinates) return;
+
+                                const total = route.route_coordinates.length;
+                                let progress = 0;
+                                
+                                if (total > 0 && pos.pathIndex !== undefined && pos.pathIndex !== null) {
+                                    progress = Math.min(100, Math.round((pos.pathIndex / total) * 100));
+                                } else if (total > 0) {
+                                    // 🔥 FIX: Handle missing pathIndex
+                                    progress = 0;
+                                }
+                                
+                                progress = Math.min(100, Math.max(0, progress));
+
+                                const bar = document.getElementById(`truckBar_${truckId}`);
+                                const lbl = document.getElementById(`truckPct_${truckId}`);
+
+                                if (bar) bar.style.width = progress + "%";
+                                if (lbl) lbl.innerText = progress + "%";
+                                
+                                console.log(`✅ FLEET PROGRESS: ${truckId} = ${progress}%`);
+                            });
+                        }
+
+                        updateStatistics();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking simulation status:', error);
+                });
+        }
+        
+        // 🔥 TEMP FIX: Enable optimize button without waiting for reporting
+        function enableOptimizeButton() {
+            const optimizeBtn = document.getElementById('optimizeRouteBtn');
+            if (optimizeBtn) {
+                optimizeBtn.disabled = false;
+                console.log("🔥 TEMP: Optimize button enabled without reporting requirement");
             }
         }
         
-        // Event Listeners
-        document.getElementById('generateCityBtn').addEventListener('click', async () => {
-            const response = await fetch('/api/generate_city', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ num_houses: 50 })
-            });
-            const data = await response.json();
-            if (data.success) {
-                simulationData.houses = data.houses;
-                simulationData.cityGenerated = true;
-                addHouseMarkers();
-                updateStatistics();
-                document.getElementById('startReportingBtn').disabled = false;
+        // 🔥 TEMP FIX: Enable spawn truck button after optimization
+        function enableSpawnTruckButton() {
+            const spawnBtn = document.getElementById('spawnTruckBtn');
+            if (spawnBtn) {
+                spawnBtn.disabled = false;
+                console.log("🔥 TEMP: Spawn truck button enabled");
             }
+        }
+        
+        // Enable after city generation
+        setTimeout(enableOptimizeButton, 2000);
+        setTimeout(enableSpawnTruckButton, 5000); // Enable after 5 seconds
+        function housesStatusChanged(oldHouses, newHouses) {
+            if (oldHouses.length !== newHouses.length) return true;
+            
+            for (let i = 0; i < oldHouses.length; i++) {
+                if (oldHouses[i].status !== newHouses[i].status) return true;
+            }
+            return false;
+        }
+        
+
+        // Event Listeners
+        let reportingActive = false;
+        let reportingTimer = null;
+        let timeRemaining = 120; // 2 minutes instead of 30 seconds
+
+        document.getElementById('reportingToggleBtn').addEventListener('click', function() {
+            toggleReporting();
+        });
+
+        function toggleReporting() {
+            reportingActive = !reportingActive;
+            const btn = document.getElementById('reportingToggleBtn');
+            const timerDiv = document.getElementById('reportingTimer');
+            
+            if (reportingActive) {
+                // Start reporting
+                btn.innerHTML = '🔴 Stop Reporting Window';
+                btn.className = 'btn btn-secondary w-100';
+                timerDiv.style.display = 'block';
+                timeRemaining = 120; // Reset to 2 minutes
+                startReportingTimer();
+                
+                // Call backend to start reporting
+                fetch('/api/start_reporting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } else {
+                // Stop reporting
+                btn.innerHTML = '🟢 Start Reporting Window';
+                btn.className = 'btn btn-primary w-100';
+                timerDiv.style.display = 'none';
+                stopReportingTimer();
+                
+                // Call backend to end reporting
+                fetch('/api/end_reporting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+        }
+
+        function startReportingTimer() {
+            updateTimerDisplay();
+            reportingTimer = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                if (timeRemaining <= 0) {
+                    toggleReporting(); // Auto stop when timer reaches 0
+                }
+            }, 1000);
+        }
+
+        function stopReportingTimer() {
+            if (reportingTimer) {
+                clearInterval(reportingTimer);
+                reportingTimer = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // 🔥 PROFESSIONAL: View Toggle Functionality
+        let viewMode = 'all'; // 'all' or 'optimized'
+        let selectedHouseIds = new Set();
+        
+        document.getElementById('viewAllBtn').addEventListener('click', () => {
+            viewMode = 'all';
+            document.getElementById('viewAllBtn').style.background = '#3B82F6';
+            document.getElementById('viewAllBtn').style.color = 'white';
+            document.getElementById('viewOptimizedBtn').style.background = '#E5E7EB';
+            document.getElementById('viewOptimizedBtn').style.color = '#374151';
+            updateHouseVisibility();
+            console.log('🔍 View mode: All Houses');
         });
         
-        document.getElementById('startReportingBtn').addEventListener('click', async () => {
-            const response = await fetch('/api/start_reporting', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+        document.getElementById('viewOptimizedBtn').addEventListener('click', () => {
+            viewMode = 'optimized';
+            document.getElementById('viewOptimizedBtn').style.background = '#3B82F6';
+            document.getElementById('viewOptimizedBtn').style.color = 'white';
+            document.getElementById('viewAllBtn').style.background = '#E5E7EB';
+            document.getElementById('viewAllBtn').style.color = '#374151';
+            updateHouseVisibility();
+            console.log('🎯 View mode: Optimized Only');
+        });
+        
+        function updateHouseVisibility() {
+            simulationData.houses.forEach(house => {
+                if (markers[house.id] && map.hasLayer(markers[house.id])) {
+                    if (viewMode === 'optimized') {
+                        // Show only selected houses
+                        if (!selectedHouseIds.has(house.id)) {
+                            map.removeLayer(markers[house.id]);
+                        }
+                    } else {
+                        // Show all houses
+                        if (!map.hasLayer(markers[house.id])) {
+                            markers[house.id].addTo(window.houseLayer);
+                        }
+                    }
+                }
             });
-            const data = await response.json();
-            if (data.success) window.location.href = data.redirect_url;
-        });
-        
+        }
+
         document.getElementById('optimizeRouteBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('optimizeRouteBtn');
+            btn.textContent = '⏳ Optimizing... (may take 1-2 min)';
+            btn.disabled = true;
+            try {
             const response = await fetch('/api/optimize_route', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
             const data = await response.json();
             if (data.success) {
-                simulationData.optimizedRoute = data.route;
+                simulationData.multiTruckRoutes = data.multi_truck_routes;
+                simulationData.activeTrucks = data.active_trucks;
                 simulationData.routeOptimized = true;
-                drawOptimizedRoute(data.route, data.route_coordinates);
+                window.routesDrawnOnce = false; // allow immediate redraw on next poll
+
+                // 🔥 PROFESSIONAL: Highlight selected houses and fade unselected ones
+                selectedHouseIds.clear(); // Reset previous selection
+                data.multi_truck_routes.forEach(route => {
+                    route.route.forEach(point => {
+                        if (point.type === 'garbage') {
+                            selectedHouseIds.add(point.id);
+                        }
+                    });
+                });
                 
+                console.log(`🎯 Selected ${selectedHouseIds.size} houses for optimization`);
+                console.log(`📊 Total garbage houses: ${simulationData.houses.filter(h => h.has_garbage === true).length}`);
+                console.log(`⚠️ Unselected garbage houses: ${simulationData.houses.filter(h => h.has_garbage === true && !selectedHouseIds.has(h.id)).length}`);
+                
+                // Update all houses with appropriate highlighting
+                simulationData.houses.forEach(house => {
+                    if (markers[house.id] && map.hasLayer(markers[house.id])) {
+                        if (house.has_garbage === true) {
+                            if (selectedHouseIds.has(house.id)) {
+                                // 🟠 SELECTED: Orange house (part of route)
+                                const orangeIcon = L.divIcon({
+                                    html: `<div style="background:#F97316;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;">🏠</div>`,
+                                    iconSize: [28, 28],
+                                    iconAnchor: [14, 14],
+                                    className: ''
+                                });
+                                markers[house.id].setIcon(orangeIcon);
+                                console.log(`✅ Highlighted selected house: ${house.id}`);
+                            } else {
+                                // 🔴 FADED: Gray house (has garbage but not selected)
+                                const fadedIcon = L.divIcon({
+                                    html: `<div style="background:#9CA3AF;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;opacity:0.5;">🏠</div>`,
+                                    iconSize: [28, 28],
+                                    iconAnchor: [14, 14],
+                                    className: ''
+                                });
+                                markers[house.id].setIcon(fadedIcon);
+                                console.log(`⚠️ Faded unselected garbage house: ${house.id}`);
+                            }
+                        }
+                        // Keep non-garbage houses as they are (blue/gray)
+                    }
+                });
+                
+                // Update visibility based on current view mode
+                updateHouseVisibility();
+                
+                // 🔥 PROFESSIONAL: Show view mode toggle after optimization
+                document.getElementById('viewModeToggle').style.display = 'block';
+                console.log('✅ View mode toggle now visible');
+
+                drawOptimizedRoute(data.multi_truck_routes);
+
+                // Summary metrics
+                const avgEff = Math.round(data.multi_truck_routes.reduce((s, r) => s + (r.efficiency_pct || 0), 0) / data.multi_truck_routes.length);
+                const fuelSaved = Math.round(avgEff * 0.22);
+                const co2Saved = Math.round(fuelSaved * 0.65);
                 document.getElementById('routeMetricsCard').style.display = 'block';
                 document.getElementById('routeDistance').textContent = data.total_distance_km + 'km';
                 document.getElementById('routeStops').textContent = data.houses_visited;
-                document.getElementById('routeEfficiency').textContent = data.percentage_saved + '%';
+                document.getElementById('routeEfficiency').textContent = avgEff + '%';
+                document.getElementById('fuelSaved').textContent = fuelSaved + '%';
+                document.getElementById('co2Reduced').textContent = co2Saved + '%';
+
+                renderPerTruckMetrics(data.multi_truck_routes);
                 document.getElementById('spawnTruckBtn').disabled = false;
+                btn.textContent = '✅ Routes Optimized';
+            } else {
+                btn.textContent = 'Optimize Multi-Truck Routes';
+                btn.disabled = false;
+                alert('Optimization failed: ' + (data.error || 'Unknown error'));
+            }
+            } catch (err) {
+                btn.textContent = 'Optimize Multi-Truck Routes';
+                btn.disabled = false;
+                alert('Request failed: ' + err.message);
             }
         });
         
         document.getElementById('spawnTruckBtn').addEventListener('click', async () => {
-            const response = await fetch('/api/spawn_truck', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await response.json();
-            if (data.success) {
-                simulationData.truckSpawned = true;
-                spawnTruck();
-                document.getElementById('spawnTruckBtn').disabled = true;
+            console.log('🚛 Spawn truck button clicked');
+            try {
+                const response = await fetch('/api/spawn_truck', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                console.log('🚛 Spawn truck response status:', response.status);
+                const responseData = await response.json();
+                console.log('🚛 Spawn truck response data:', responseData);
+                
+                if (responseData.success) {
+                    simulationData.truckSpawned = true;
+                    simulationData.truckPositions = responseData.truck_positions;
+                    simulationData.activeTrucks = Object.keys(responseData.truck_positions); // 🔥 FIX: Set active trucks
+                    spawnTruck();
+                    document.getElementById('spawnTruckBtn').disabled = true;
+                    console.log('✅ Fleet deployed:', responseData.message);
+                } else {
+                    console.error('❌ Failed to spawn trucks:', responseData.error);
+                    alert('Failed to spawn trucks: ' + responseData.error);
+                }
+            } catch (error) {
+                console.error('❌ Error spawning trucks:', error);
+                alert('Error spawning trucks: ' + error.message);
             }
         });
         
         document.getElementById('resetBtn').addEventListener('click', async () => {
-            await fetch('/api/reset_simulation', { method: 'POST' });
-            location.reload();
+            try {
+                // Step 1: Block all polling immediately
+                isResetting = true;
+
+                // Step 2: Stop animation timers
+                Object.values(animationTimers).forEach(t => clearTimeout(t));
+
+                // Step 3: Clear all map layers including routes and trucks
+                Object.values(routeLines).forEach(l => { if (l && map.hasLayer(l)) map.removeLayer(l); });
+                routeLines = {};
+                Object.values(truckMarkers).forEach(m => {
+                    if (m) {
+                        if (m.truck && map.hasLayer(m.truck)) map.removeLayer(m.truck);
+                        if (m.label && map.hasLayer(m.label)) map.removeLayer(m.label);
+                    }
+                });
+                truckMarkers = {};
+                if (t1LerpInterval) { clearInterval(t1LerpInterval); t1LerpInterval = null; }
+                clearMarkers();
+                if (window.houseLayer) { map.removeLayer(window.houseLayer); window.houseLayer = null; }
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+                        if (!(layer instanceof L.TileLayer)) map.removeLayer(layer);
+                    }
+                });
+
+                // Step 4: Clear all frontend state
+                permanentlyCollectedLocations.clear();
+                selectedHouseIds.clear();
+                viewMode = 'all';
+                window.routesDrawnOnce = false;
+                truckPathProgress = {};
+                routeFinished = {};
+                mapFitted = false;
+                simulationData = {
+                    houses: [], garbageHouses: [], noGarbageHouses: [],
+                    collectedHouses: [], completedHouses: [],
+                    multiTruckRoutes: [], activeTrucks: [],
+                    routeOptimized: false, cityGenerated: false,
+                    reportingEnded: false, truck_positions: {}
+                };
+
+                // Step 5: Reset UI buttons
+                document.getElementById('reportingToggleBtn').innerHTML = '🟢 Start Reporting Window';
+                document.getElementById('reportingToggleBtn').className = 'btn btn-primary w-100';
+                document.getElementById('reportingToggleBtn').disabled = false;
+                document.getElementById('optimizeRouteBtn').disabled = true;
+                document.getElementById('optimizeRouteBtn').textContent = 'Optimize Multi-Truck Routes';
+                document.getElementById('spawnTruckBtn').disabled = true;
+                document.getElementById('viewModeToggle').style.display = 'none';
+                document.getElementById('routeMetricsCard').style.display = 'none';
+                document.getElementById('fleetStatus').style.display = 'none';
+                document.getElementById('totalHouses').innerText = '0';
+                document.getElementById('collectedHouses').innerText = '0';
+                document.getElementById('remainingHouses').innerText = '0';
+                document.getElementById('garbageHouses').innerText = '0';
+                stopReportingTimer();
+                timeRemaining = 120;
+                updateTimerDisplay();
+
+                // Step 6: Reset backend
+                await fetch('/api/reset_simulation', { method: 'POST' });
+                await fetch('/api/reset_driver', { method: 'POST' });
+
+                // Step 7: Re-enable polling and load fresh data
+                isResetting = false;
+                await checkSimulationStatus();
+                // Re-enable optimize button after reset (setTimeout only runs once on page load)
+                document.getElementById('optimizeRouteBtn').disabled = false;
+
+            } catch (e) {
+                isResetting = false;
+                console.error('Reset error:', e);
+            }
         });
         
-        setInterval(checkSimulationStatus, 500);
+        // 🔥 NEW: Open Driver App in New Tab
+        function openDriverApp() {
+            console.log('🚛 Opening Driver App in new tab...');
+            window.open('/driver', '_blank');
+        }
         
-        document.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            // Load existing simulation state
-            checkSimulationStatus();
-        });
+        // Poll every 500ms for T1 sync from driver app
+        let t1LerpInterval = null; // track active lerp to prevent stacking
+        setInterval(function() {
+            if (isResetting) return;
+            fetch('/api/get_simulation_status')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const sim = data.simulation;
+                    const t1Pos = sim.truck_positions && sim.truck_positions['T1'];
+                    if (!t1Pos || t1Pos.lat == null) return;
+
+                    if (!truckMarkers['T1'] || !map.hasLayer(truckMarkers['T1'].truck)) {
+                        // Create T1 marker only if it doesn't exist yet
+                        const t1Icon = L.divIcon({
+                            html: '<div style="background:#DC2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🚛</div>',
+                            iconSize: [36, 36], iconAnchor: [18, 18], className: 'driver-truck'
+                        });
+                        const marker = L.marker([t1Pos.lat, t1Pos.lng], { icon: t1Icon }).addTo(map);
+                        const label = L.marker([t1Pos.lat, t1Pos.lng], {
+                            icon: L.divIcon({
+                                html: '<div style="background:#DC2626;color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;white-space:nowrap;">T1</div>',
+                                className: '', iconSize: [40, 16], iconAnchor: [20, -20]
+                            })
+                        }).addTo(map);
+                        truckMarkers['T1'] = { truck: marker, label: label };
+                    } else {
+                        // Move T1 directly — no lerp interval stacking
+                        if (t1LerpInterval) { clearInterval(t1LerpInterval); t1LerpInterval = null; }
+                        const marker = truckMarkers['T1'].truck;
+                        const label = truckMarkers['T1'].label;
+                        const startPos = marker.getLatLng();
+                        const targetLat = t1Pos.lat;
+                        const targetLng = t1Pos.lng;
+                        // Skip lerp if already at target (avoids flicker on same position)
+                        if (Math.abs(startPos.lat - targetLat) < 0.000001 && Math.abs(startPos.lng - targetLng) < 0.000001) return;
+                        let step = 0;
+                        t1LerpInterval = setInterval(() => {
+                            step++;
+                            const t = step / 8;
+                            marker.setLatLng([startPos.lat + (targetLat - startPos.lat) * t,
+                                             startPos.lng + (targetLng - startPos.lng) * t]);
+                            if (label) label.setLatLng(marker.getLatLng());
+                            if (step >= 8) { clearInterval(t1LerpInterval); t1LerpInterval = null; }
+                        }, 50);
+                    }
+
+                    // Update T1 progress bar + route shrink
+                    const t1Route = simulationData.multiTruckRoutes && simulationData.multiTruckRoutes.find(r => r.truck_id === 'T1');
+                    if (t1Route && t1Route.route_coordinates && t1Pos.pathIndex != null) {
+                        const total = t1Route.route_coordinates.length;
+                        const idx = t1Pos.pathIndex || 0;
+                        truckPathProgress['T1'] = idx;
+                        const pct = Math.min(100, Math.round((idx / total) * 100));
+                        const bar = document.getElementById('truckBar_T1');
+                        const lbl = document.getElementById('truckPct_T1');
+                        if (bar) bar.style.width = pct + '%';
+                        if (lbl) lbl.textContent = pct + '%';
+                        updateOverallProgress();
+                        // Shrink T1 route line directly
+                        if (idx >= total - 1) {
+                            // T1 finished — remove route permanently
+                            routeFinished['T1'] = true;
+                            if (routeLines['T1'] && map.hasLayer(routeLines['T1'])) map.removeLayer(routeLines['T1']);
+                            delete routeLines['T1'];
+                        } else if (routeLines['T1']) {
+                            routeLines['T1'].setLatLngs(t1Route.route_coordinates.slice(idx).map(c => [c[0], c[1]]));
+                        }
+                    }
+
+                    // Sync T1 collected houses — update permanentSet + marker icons + stats
+                    if (sim.collected_houses && Array.isArray(sim.collected_houses)) {
+                        sim.collected_houses.forEach(id => {
+                            if (!permanentlyCollectedLocations.has(id)) {
+                                permanentlyCollectedLocations.add(id);
+                                // Update the house object
+                                simulationData.houses.forEach(h => { if (h.id === id) h.collected = true; });
+                                // Update the map marker icon to checkmark
+                                if (markers[id]) {
+                                    const house = simulationData.houses.find(h => h.id === id);
+                                    const isBin = house && house.type === 'bin';
+                                    markers[id].setIcon(L.divIcon({
+                                        html: `<div style="background:${isBin ? '#F97316' : '#10B981'};width:28px;height:28px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:13px;">✅</div>`,
+                                        iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+                                    }));
+                                }
+                            }
+                        });
+                        updateStatistics();
+                    }
+                })
+                .catch(() => {});
+        }, 500);
+        
+        // 🔥 REMOVED EMERGENCY POLLING (was breaking everything)
+        
+        // 🔥 EMERGENCY: Manual test function to debug the issue
+        function debugHouseData() {
+            console.log("🚨 MANUAL DEBUG: Checking house data");
+            console.log("🚨 simulationData.houses:", simulationData.houses);
+            console.log("🚨 simulationData.houses.length:", simulationData.houses?.length || 0);
+            
+            // Try to fetch data directly
+            fetch('/api/get_simulation_status')
+                .then(res => res.json())
+                .then(data => {
+                    console.log("🚨 DIRECT API RESPONSE:", data);
+                    console.log("🚨 DIRECT houses:", data.simulation?.houses);
+                    console.log("🚨 DIRECT houses length:", data.simulation?.houses?.length || 0);
+                    
+                    if (data.simulation?.houses && data.simulation.houses.length > 0) {
+                        console.log("🚨 DIRECT UPDATE: Forcing UI update with direct data");
+                        const total = data.simulation.houses.length;
+                        document.getElementById('totalHouses').innerText = total;
+                        console.log("✅ DIRECT UPDATE: Set total to", total);
+                    }
+                })
+                .catch(error => {
+                    console.error("🚨 DIRECT API ERROR:", error);
+                });
+        }
+        
+        // 🔥 EMERGENCY: Add manual debug button (temporarily)
+        setTimeout(() => {
+            console.log("🚨 RUNNING MANUAL DEBUG AFTER 5 SECONDS");
+            debugHouseData();
+        }, 5000);
+        
+        // 🔥 REMOVE AGGRESSIVE POLLING (CAUSES JERKY MOVEMENT)
+        // setInterval(async () => {
+        //     const res = await fetch('/api/get_state');
+        //     const data = await res.json();
+
+        //     // 🔥 FULL SYNC
+        //     simulationData.houses = data.houses;
+        //     simulationData.completedHouses = data.collected_houses;
+        //     simulationData.truck_positions = data.truck_positions;
+
+        //     console.log("🔄 Admin Sync:", data);
+
+        //     // 🔥 FORCE UI REFRESH
+        //     addHouseMarkers();
+        //     updateStatistics();
+        //     drawOptimizedRoute(simulationData.multiTruckRoutes);
+
+        // }, 1000);
+        
+        initMap();
+        checkSimulationStatus();
+        // Poll every 3 seconds to catch IoT bin status changes
+        setInterval(checkSimulationStatus, 3000);
     </script>
 </body>
 </html>

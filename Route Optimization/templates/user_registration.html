@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Registration - Smart Waste System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F5F6F8;
+            color: #111827;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: #1F2937;
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-subtitle {
+            font-size: 14px;
+            color: #9CA3AF;
+            margin-top: 4px;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+        
+        /* Registration Card */
+        .registration-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #111827;
+        }
+        
+        .card-description {
+            color: #6B7280;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #7C3AED;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        
+        /* Map */
+        .map-container {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        
+        .map-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #111827;
+        }
+        
+        #map {
+            height: 500px;
+            border-radius: 12px;
+            border: 2px solid #E5E7EB;
+            cursor: crosshair;
+        }
+        
+        .map-instructions {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #FEF3C7;
+            border-radius: 8px;
+            border-left: 4px solid #F59E0B;
+            font-size: 14px;
+            color: #92400E;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #7C3AED;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #6D28D9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            background: #9CA3AF;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: #6B7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4B5563;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        /* Status */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .status-success {
+            background: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #10B981;
+        }
+        
+        .status-error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #EF4444;
+        }
+        
+        .status-info {
+            background: #DBEAFE;
+            color: #1E40AF;
+            border: 1px solid #3B82F6;
+        }
+        
+        /* Selected Location */
+        .selected-location {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #F3F4F6;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #374151;
+            display: none;
+        }
+        
+        .location-coords {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #7C3AED;
+            font-weight: 500;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .registration-card, .map-container {
+                padding: 20px;
+            }
+            
+            #map {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="header-title">🏠 House Registration</div>
+            <div class="header-subtitle">Smart Waste Collection System - Delhi</div>
+        </div>
+        <a href="/" class="btn btn-secondary">← Admin Dashboard</a>
+    </div>
+    
+    <div class="container">
+        <div class="registration-card">
+            <h2 class="card-title">Register Your Household</h2>
+            <p class="card-description">
+                Join the smart waste collection system. Fill in your details and select your exact location on the map below.
+            </p>
+            
+            <form id="registrationForm">
+                <div class="form-group">
+                    <label class="form-label" for="name">Householder Name</label>
+                    <input type="text" id="name" class="form-input" placeholder="Enter your name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="phone">Phone Number (Optional)</label>
+                    <input type="tel" id="phone" class="form-input" placeholder="Enter your phone number">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="address">Address (Optional)</label>
+                    <input type="text" id="address" class="form-input" placeholder="Enter your address">
+                </div>
+            </form>
+        </div>
+        
+        <div class="map-container">
+            <h3 class="map-title">📍 Select Your Location</h3>
+            <div id="map"></div>
+            <div class="map-instructions">
+                <strong>📍 Click on the map to select your exact location</strong><br>
+                Your location will be used for waste collection routing. Make sure to click accurately on your building.
+            </div>
+            <div id="selectedLocation" class="selected-location">
+                <strong>Selected Location:</strong> 
+                <span class="location-coords" id="locationCoords">Not selected</span>
+            </div>
+            
+            <div class="button-group">
+                <button id="registerBtn" class="btn btn-primary" disabled>
+                    🏠 Register House
+                </button>
+                <button id="clearBtn" class="btn btn-secondary">
+                    🔄 Clear Selection
+                </button>
+            </div>
+            
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let selectedMarker = null;
+        let selectedLatLng = null;
+        let registeredHouseId = null;
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([28.6139, 77.2090], 12); // Delhi center
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add click handler
+            map.on('click', function(e) {
+                selectLocation(e.latlng);
+            });
+        }
+        
+        // Select location on map
+        function selectLocation(latlng) {
+            selectedLatLng = latlng;
+            
+            // Remove previous marker
+            if (selectedMarker) {
+                map.removeLayer(selectedMarker);
+            }
+            
+            // Add new marker
+            selectedMarker = L.marker([latlng.lat, latlng.lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map);
+            
+            selectedMarker.bindPopup("Your House Location").openPopup();
+            
+            // Update UI
+            document.getElementById('locationCoords').textContent = 
+                `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+            document.getElementById('selectedLocation').style.display = 'block';
+            document.getElementById('registerBtn').disabled = false;
+        }
+        
+        // Clear selection
+        function clearSelection() {
+            if (selectedMarker) {
+                map.removeLayer(selectedMarker);
+                selectedMarker = null;
+            }
+            selectedLatLng = null;
+            document.getElementById('selectedLocation').style.display = 'none';
+            document.getElementById('registerBtn').disabled = true;
+            hideStatus();
+        }
+        
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+        }
+        
+        // Hide status message
+        function hideStatus() {
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+        
+        // Register house
+        async function registerHouse() {
+            if (!selectedLatLng) {
+                showStatus('Please select your location on map', 'error');
+                return;
+            }
+            
+            const name = document.getElementById('name').value.trim();
+            if (!name) {
+                showStatus('Please enter your name', 'error');
+                return;
+            }
+            
+            const phone = document.getElementById('phone').value.trim();
+            const address = document.getElementById('address').value.trim();
+            
+            // Disable button
+            const registerBtn = document.getElementById('registerBtn');
+            registerBtn.disabled = true;
+            registerBtn.textContent = '🔄 Registering...';
+            
+            try {
+                const response = await fetch('/api/register_house', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        lat: selectedLatLng.lat,
+                        lng: selectedLatLng.lng,
+                        name: name,
+                        phone: phone,
+                        address: address
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus(`✅ House registered successfully! Your House ID: ${data.house.id}`, 'success');
+                    
+                    // Reset form after delay
+                    setTimeout(() => {
+                        document.getElementById('name').value = '';
+                        document.getElementById('phone').value = '';
+                        document.getElementById('address').value = '';
+                        clearSelection();
+                        registerBtn.textContent = '🏠 Register House';
+                    }, 3000);
+                } else {
+                    showStatus(`❌ Registration failed: ${data.error}`, 'error');
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = '🏠 Register House';
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showStatus('❌ Network error. Please try again.', 'error');
+                registerBtn.disabled = false;
+                registerBtn.textContent = '🏠 Register House';
+            }
+        }
+        
+        // Report garbage status
+        async function reportGarbageStatus(hasGarbage) {
+            if (!registeredHouseId) {
+                showGarbageStatus('Please register a house first', 'error');
+                return;
+            }
+            
+            const yesBtn = document.getElementById('garbageYesBtn');
+            const noBtn = document.getElementById('garbageNoBtn');
+            
+            // Disable buttons
+            yesBtn.disabled = true;
+            noBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/report_garbage', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        house_id: registeredHouseId,
+                        reported: hasGarbage
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showGarbageStatus(
+                        `✅ Garbage status updated: ${hasGarbage ? 'Ready for collection' : 'No garbage today'}`, 
+                        'success'
+                    );
+                    
+                    // Hide buttons after successful report
+                    setTimeout(() => {
+                        document.getElementById('garbageReportingSection').style.display = 'none';
+                        registeredHouseId = null; // Reset for next registration
+                    }, 2000);
+                } else {
+                    showGarbageStatus(`❌ Failed to update: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Garbage report error:', error);
+                showGarbageStatus('❌ Network error. Please try again.', 'error');
+            } finally {
+                // Re-enable buttons
+                yesBtn.disabled = false;
+                noBtn.disabled = false;
+            }
+        }
+        
+        // Show garbage status message
+        function showGarbageStatus(message, type) {
+            const statusEl = document.getElementById('garbageStatusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+        }
+        
+        // Event listeners
+        document.getElementById('registerBtn').addEventListener('click', registerHouse);
+        document.getElementById('clearBtn').addEventListener('click', clearSelection);
+        
+        // Initialize map on page load
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>
