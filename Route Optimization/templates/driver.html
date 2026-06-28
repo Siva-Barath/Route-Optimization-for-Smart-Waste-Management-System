@@ -2,410 +2,1136 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Driver App - Smart Waste Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Driver App — Smart Waste</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+        :root {
+            --bg: #0F172A;
+            --surface: #1E293B;
+            --surface2: #334155;
+            --border: #334155;
+            --accent: #2563EB;
+            --accent-hover: #1D4ED8;
+            --green: #16A34A;
+            --orange: #D97706;
+            --red: #DC2626;
+            --text: #F8FAFC;
+            --muted: #94A3B8;
+            --radius: 12px;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: white; overflow: hidden; }
-        .header { background: linear-gradient(135deg, #2563eb, #1e40af); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-        .header h1 { font-size: 22px; font-weight: 600; }
-        .header .status { font-size: 13px; opacity: 0.85; margin-top: 4px; }
-        .main-container { display: flex; height: calc(100vh - 72px); }
-        .map-container { flex: 1; position: relative; }
-        #map { width: 100%; height: 100%; }
-        .control-panel { width: 320px; background: #2d2d2d; padding: 16px; overflow-y: auto; border-left: 1px solid #404040; }
-        .section { margin-bottom: 16px; padding: 14px; background: #3d3d3d; border-radius: 8px; border: 1px solid #4d4d4d; }
-        .section h3 { font-size: 14px; margin-bottom: 12px; color: #60a5fa; }
-        .btn { width: 100%; padding: 11px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-success { background: #10b981; color: white; }
-        .btn:disabled { background: #4b5563; cursor: not-allowed; opacity: 0.6; }
-        .info-row { display: flex; justify-content: space-between; padding: 6px 8px; background: #2d2d2d; border-radius: 4px; margin-bottom: 6px; font-size: 13px; }
-        .info-label { color: #9ca3af; }
-        .info-value { font-weight: 600; color: #60a5fa; }
-        .coords { font-family: monospace; color: #93c5fd; font-size: 12px; margin-top: 4px; }
-        .progress-bar { width: 100%; height: 8px; background: #4b5563; border-radius: 4px; overflow: hidden; margin: 8px 0; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #059669); transition: width 0.3s ease; }
-        .house-list { max-height: 220px; overflow-y: auto; }
-        .house-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 8px; margin-bottom: 4px; background: #3d3d3d; border-radius: 4px; font-size: 12px; }
-        .house-item.completed { background: #065f46; color: #10b981; }
-        .house-item.current { background: #1e40af; color: #93c5fd; font-weight: 600; border: 1px solid #3b82f6; }
-        .msg { padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
-        .msg-error { background: #dc2626; }
-        .msg-success { background: #10b981; }
-        .msg-info { background: #1e40af; text-align: center; color: #9ca3af; }
+
+        html, body {
+            height: 100%;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--surface);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+            height: 80px;
+        }
+
+        .header-left h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-left .sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .truck-badge-wrapper {
+            display: flex;
+            align-items: center;
+        }
+
+        .truck-badge {
+            background-color: var(--accent);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Layout */
+        .page {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .driver-panel {
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .map-section {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 350px;
+            flex-shrink: 0;
+        }
+
+        .map-section h3 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+        }
+
+        .map-wrap {
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            height: 100%;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Cards and Elements */
+        .stop-hero {
+            background: linear-gradient(135deg, #1E3A8A 0%, #1E293B 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .stop-hero .label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .stop-id {
+            font-size: 36px;
+            font-weight: 800;
+            color: #60A5FA;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .stop-id.done {
+            color: var(--green);
+        }
+
+        .stop-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background-color: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            font-size: 11px;
+            color: #93C5FD;
+            margin-bottom: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stop-meta {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .meta-card {
+            background-color: var(--surface);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .meta-card .mval {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .meta-card .mlabel {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        /* Progress */
+        .progress-section {
+            padding: 16px;
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .progress-header span {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .progress-header strong {
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .pbar-track {
+            height: 8px;
+            background-color: var(--surface2);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .pbar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), #34D399);
+            border-radius: 99px;
+            transition: width 0.4s ease;
+        }
+
+        /* Guidance */
+        .guidance-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .g-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 10px;
+            text-align: center;
+        }
+
+        .g-card .g-val {
+            font-size: 18px;
+            font-weight: 800;
+            color: #60A5FA;
+            line-height: 1.1;
+        }
+
+        .g-card .g-val.highlight {
+            color: var(--orange);
+        }
+
+        .g-card .g-label {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        /* Action Buttons */
+        .action-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-start, .btn-collect, .btn-skip {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--radius);
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-start {
+            background-color: var(--accent);
+            color: white;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.25);
+        }
+
+        .btn-start:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-collect {
+            background-color: var(--green);
+            color: white;
+            box-shadow: 0 4px 14px rgba(22,163,74,0.25);
+        }
+
+        .btn-collect:hover:not(:disabled) {
+            background-color: #15803D;
+        }
+
+        .btn-skip {
+            background-color: #475569;
+            color: white;
+            border: 1px solid var(--border);
+        }
+
+        .btn-skip:hover:not(:disabled) {
+            background-color: #334155;
+        }
+
+        .btn-start:disabled, .btn-collect:disabled, .btn-skip:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* GPS */
+        .gps-row {
+            padding: 14px;
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .gps-row .next-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
+
+        .next-stop-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .next-stop-id {
+            font-size: 14px;
+            font-family: monospace;
+            color: #93C5FD;
+            font-weight: 700;
+        }
+
+        .next-stop-type {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .gps-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--muted);
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .gps-dot.active {
+            background-color: var(--green);
+            animation: pulse-green 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+        }
+
+        /* Stops List */
+        .stops-section h3 {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+
+        .stops-section {
+            margin-top: 8px;
+        }
+
+        .stop-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .stop-item.active-stop {
+            background-color: rgba(37, 99, 235, 0.1);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(37,99,235,0.15);
+        }
+
+        .stop-item.collected {
+            background-color: rgba(22, 163, 74, 0.08);
+            border-color: rgba(22, 163, 74, 0.4);
+            opacity: 0.85;
+        }
+
+        .stop-num {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background-color: var(--surface2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: var(--muted);
+        }
+
+        .stop-item.active-stop .stop-num {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .stop-item.collected .stop-num {
+            background-color: var(--green);
+            color: white;
+        }
+
+        .stop-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .stop-info .sid {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stop-info .stype {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stop-item.active-stop .stop-info .sid {
+            color: #60A5FA;
+        }
+
+        .stop-item.collected .stop-info .sid {
+            color: var(--green);
+        }
+
+        .stop-status {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* Fallback mobile bar */
+        .status-bar {
+            position: sticky;
+            bottom: 0;
+            background-color: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 12px 18px;
+            font-size: 13px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 50px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        .status-dot.moving {
+            background-color: var(--orange);
+            animation: pulse-orange 1s infinite;
+        }
+
+        .status-dot.stopped {
+            background-color: var(--accent);
+        }
+
+        .status-dot.done {
+            background-color: var(--green);
+        }
+
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+
+        #statusText {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        /* Desktop split pane styling */
+        @media (min-width: 768px) {
+            .page {
+                flex-direction: row;
+                overflow: hidden;
+                height: calc(100vh - 80px);
+            }
+            
+            .main-content {
+                flex-direction: row;
+                flex: 1;
+                height: 100%;
+                overflow: hidden;
+            }
+            
+            .driver-panel {
+                width: 380px;
+                overflow-y: auto;
+                flex-shrink: 0;
+                border-right: 1px solid var(--border);
+                height: 100%;
+                padding: 24px;
+            }
+            
+            .map-section {
+                flex: 1;
+                padding: 24px;
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                overflow: hidden;
+            }
+            
+            .map-section h3 {
+                font-size: 14px;
+            }
+            
+            .map-wrap {
+                flex: 1;
+                min-height: 0;
+                height: 0;
+            }
+            
+            .status-bar {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🚛 Driver App — T1</h1>
-        <div class="status" id="statusText">Loading route...</div>
+
+<div class="header">
+    <div class="header-left">
+        <h1>Fleet Operations Console</h1>
+        <div class="sub" id="statusText">Loading route...</div>
+    </div>
+    <div class="truck-badge-wrapper">
+        <div class="gps-dot active" style="margin-right: 8px;"></div>
+        <span style="font-size: 11px; font-weight: 700; color: #10B981; margin-right: 12px; letter-spacing: 0.5px;">ONLINE</span>
+        <div class="truck-badge" id="truckBadge">—</div>
+    </div>
+</div>
+
+<div class="page" id="page">
+
+    <!-- Loading state -->
+    <div id="loadingState" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p id="loadingMsg">Waiting for route from admin...</p>
+        <button class="retry-btn" onclick="loadRoute()">Retry</button>
     </div>
 
-    <div class="main-container">
-        <div class="map-container"><div id="map"></div></div>
+    <!-- Main content (hidden until route loaded) -->
+    <div id="mainContent" class="main-content" style="display:none;">
 
-        <div class="control-panel">
-            <div id="loadingMsg" class="msg msg-info">Loading route data...</div>
+        <!-- On desktop, panel + map side by side -->
+        <div class="driver-panel" id="driverPanel">
 
-            <div id="mainContent" style="display:none;">
-                <div class="section">
-                    <h3>📍 Position</h3>
-                    <div class="coords" id="coordsDisplay">Not started</div>
-                </div>
-
-                <div class="section">
-                    <h3>🛣️ Route Info</h3>
-                    <div class="info-row"><span class="info-label">Truck</span><span class="info-value" id="truckIdDisplay">-</span></div>
-                    <div class="info-row"><span class="info-label">Houses</span><span class="info-value" id="totalHousesDisplay">-</span></div>
-                    <div class="info-row"><span class="info-label">Progress</span><span class="info-value" id="progressDisplay">0/0</span></div>
-                    <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
-                </div>
-
-                <div class="section">
-                    <h3>🎮 Controls</h3>
-                    <button id="startBtn" class="btn btn-primary" disabled>🚀 Start Route</button>
-                    <button id="collectBtn" class="btn btn-success" disabled>📦 Collect & Next</button>
-                </div>
-
-                <div class="section">
-                    <h3>🏠 Houses</h3>
-                    <div class="house-list" id="houseList"></div>
+            <!-- ── Current Stop Hero ── -->
+            <div class="stop-hero">
+                <div class="label">Current Stop</div>
+                <div class="stop-id" id="currentStopId">—</div>
+                <div class="stop-type-badge" id="currentStopType">House</div>
+                <div class="stop-meta">
+                    <div class="meta-card">
+                        <div class="mval" id="metaDone">0</div>
+                        <div class="mlabel">Done</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="mval" id="metaRemaining">—</div>
+                        <div class="mlabel">Left</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="mval" id="metaTotal">—</div>
+                        <div class="mlabel">Total</div>
+                    </div>
                 </div>
             </div>
+
+            <!-- ── Progress ── -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span>Route Progress</span>
+                    <strong id="progressPct">0%</strong>
+                </div>
+                <div class="pbar-track"><div class="pbar-fill" id="progressBar" style="width:0%"></div></div>
+            </div>
+
+            <!-- ── Route Guidance ── -->
+            <div class="guidance-panel">
+                <div class="g-card">
+                    <div class="g-val highlight" id="guidanceDist">—</div>
+                    <div class="g-label">Distance</div>
+                </div>
+                <div class="g-card">
+                    <div class="g-val" id="guidanceEta">—</div>
+                    <div class="g-label">Est. Time</div>
+                </div>
+                <div class="g-card">
+                    <div class="g-val" id="guidanceNext">—</div>
+                    <div class="g-label">Next Stop</div>
+                </div>
+            </div>
+
+            <!-- ── Action buttons ── -->
+            <div class="action-section">
+                <button class="btn-start" id="startBtn" disabled><i class="fa-solid fa-play"></i> Start Route</button>
+                <button class="btn-collect" id="collectBtn" disabled onclick="collectAndNext()"><i class="fa-solid fa-circle-check"></i> Waste Collected</button>
+                <button class="btn-skip" id="skipBtn" disabled onclick="skipStop()"><i class="fa-solid fa-circle-right"></i> Skip Stop</button>
+            </div>
+
+            <!-- ── GPS / truck position (hidden for clean operator UI) ── -->
+            <div class="gps-row" style="display: none;">
+                <div class="next-label">Current Vehicle Position (GPS)</div>
+                <div class="next-stop-row">
+                    <div class="gps-dot active" id="gpsDot"></div>
+                    <div>
+                        <div class="next-stop-id" id="gpsCoords">—</div>
+                        <div class="next-stop-type" id="gpsDotLabel">Waiting for GPS...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Stops List ── -->
+            <div class="stops-section">
+                <h3>Upcoming Stops</h3>
+                <div id="stopsList"></div>
+            </div>
+
+        </div><!-- /driver-panel -->
+
+        <!-- ── Map (secondary on mobile, flex-1 on desktop) ── -->
+        <div class="map-section" id="mapSection">
+            <h3>Route Visualization</h3>
+            <div class="map-wrap"><div id="map"></div></div>
         </div>
-    </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-    // ─── State ───────────────────────────────────────────────────────────────
-    let map, truckMarker = null, routePolyline = null;
-    let routeData = null;
-    let pathIndex = 0;
-    let currentHouseIndex = 0;
-    let isMoving = false;
-    let isPaused = false;
-    let moveTimer = null;
-    let currentTruckId = 'T1';
-    const PROCESSING = [28.6139, 77.2090];  // Starting point (Processing Center)
-    const DEPOT = [28.6410, 77.2190];        // Final destination (Depot)
-    const MOVE_INTERVAL_MS = 200; // Slower so admin map shows smooth movement (was 80ms)
+    </div><!-- /main-content -->
 
-    // ─── Map init ────────────────────────────────────────────────────────────
-    function initMap() {
-        map = L.map('map').setView([28.6139, 77.2090], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+</div><!-- /page -->
+
+<!-- Status bar (mobile only) -->
+<div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusBarText">Idle</span>
+</div>\n\n<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+const PROCESSING = [28.6139, 77.2090];
+const DEPOT      = [28.6410, 77.2190];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let map, truckMarker = null, routePolyline = null;
+let routeData = null;
+let currentHouseIndex = 0;
+let isMoving = false;
+let isPaused = false;
+let currentTruckId = 'T1';
+let truckLat = PROCESSING[0];
+let truckLng = PROCESSING[1];
+let pollTimer = null;
+
+// ─── Map init ─────────────────────────────────────────────────────────────────
+function initMap() {
+    map = L.map('map', { zoomControl: true }).setView(PROCESSING, 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+}
+
+// ─── Load route ───────────────────────────────────────────────────────────────
+async function loadRoute() {
+    setLoading('Fetching route...');
+    try {
+        const res = await fetch('/api/get_routes');
+        const data = await res.json();
+
+        if (!data.routes || data.routes.length === 0) {
+            setLoading('No routes yet. Ask admin to optimize routes first.', true);
+            return;
+        }
+
+        const route = data.routes.find(r => r.truck_id === 'T1') || data.routes[0];
+
+        if (!route.route_coordinates || route.route_coordinates.length === 0) {
+            setLoading('Route has no coordinates. Please re-optimize.', true);
+            return;
+        }
+        if (!route.assigned_houses || route.assigned_houses.length === 0) {
+            setLoading('No houses assigned to this truck.', true);
+            return;
+        }
+
+        routeData = route;
+        currentTruckId = route.truck_id || 'T1';
+
+        // Sort houses by path proximity (mirrors backend _find_closest_path_index)
+        routeData.assigned_houses.forEach(h => {
+            h._pathIndex = findClosestPathIndex(h.lat, h.lng);
+        });
+        routeData.assigned_houses.sort((a, b) => a._pathIndex - b._pathIndex);
+
+        drawRouteOnMap();
+        buildStopsList();
+        renderUI();
+        // Place truck at coords[0] — the actual route start, same as backend t1_state init
+        const rc = routeData.route_coordinates;
+        updateTruckPosition(rc[0][0], rc[0][1]);
+
+        setStatusText('Route loaded — press Start Route');
+        setStatusDot('');
+        startPolling();
+    } catch (e) {
+        setLoading('Error loading route: ' + e.message, true);
     }
+}
 
-    // ─── Load route from backend ─────────────────────────────────────────────
-    async function loadRoute() {
-        try {
-            const res = await fetch('/api/get_routes');
-            const data = await res.json();
+// ─── Render UI after route loaded ─────────────────────────────────────────────
+function renderUI() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = '';
 
-            if (!data.routes || data.routes.length === 0) {
-                showMsg('loadingMsg', 'No routes yet. Optimize routes in admin first.', 'error');
-                return;
-            }
+    document.getElementById('truckBadge').innerHTML = '<i class="fa-solid fa-truck"></i> ' + currentTruckId;
+    document.getElementById('metaTotal').textContent = routeData.assigned_houses.length;
 
-            // Always use T1 route
-            const route = data.routes.find(r => r.truck_id === 'T1') || data.routes[0];
+    updateStopPanel();
+    updateProgress();
 
-            if (!route.route_coordinates || route.route_coordinates.length === 0) {
-                showMsg('loadingMsg', 'Route has no coordinates.', 'error');
-                return;
-            }
-            if (!route.assigned_houses || route.assigned_houses.length === 0) {
-                showMsg('loadingMsg', 'Route has no assigned houses.', 'error');
-                return;
-            }
+    document.getElementById('startBtn').disabled = false;
 
-            routeData = route;
-            currentTruckId = route.truck_id || 'T1';
+    // Force Leaflet to recalculate now that the container is visible
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+}
 
-            // Precompute pathIndex for each house (closest point on path)
-            routeData.assigned_houses.forEach(house => {
-                house._pathIndex = findClosestPathIndex(house.lat, house.lng);
-            });
-            // Sort houses by path order
-            routeData.assigned_houses.sort((a, b) => a._pathIndex - b._pathIndex);
+// ─── Current stop panel update ────────────────────────────────────────────────
+function updateStopPanel() {
+    const houses = routeData.assigned_houses;
+    const total  = houses.length;
+    const done   = currentHouseIndex;
+    const remaining = total - done;
 
-            drawRouteOnMap();
-            buildHouseList();
-            setupUI();
+    document.getElementById('metaDone').textContent      = done;
+    document.getElementById('metaRemaining').textContent = remaining;
 
-            // Place truck at processing center (starting position) and sync to admin
-            updateTruckMarker(PROCESSING[0], PROCESSING[1]);
-            syncToBackend(PROCESSING[0], PROCESSING[1]);
+    const stopIdEl   = document.getElementById('currentStopId');
+    const stopTypeEl = document.getElementById('currentStopType');
+    const nextStopEl = document.getElementById('guidanceNext');
 
-            document.getElementById('statusText').textContent = 'Route loaded — ready to start';
-        } catch (e) {
-            showMsg('loadingMsg', 'Error loading route: ' + e.message, 'error');
+    if (done >= total) {
+        // All done
+        stopIdEl.textContent   = '✅';
+        stopIdEl.className     = 'stop-id done';
+        stopTypeEl.textContent = 'All stops completed!';
+        nextStopEl.textContent = 'Depot';
+    } else {
+        const curr = houses[done];
+        stopIdEl.textContent   = curr.id;
+        stopIdEl.className     = 'stop-id';
+        stopTypeEl.innerHTML = curr.type === 'bin' ? '<i class="fa-solid fa-trash"></i> Community Bin' : '<i class="fa-solid fa-house"></i> House';
+        nextStopEl.textContent = houses[done + 1] ? houses[done + 1].id : 'Depot';
+    }
+}
+
+// ─── Progress ─────────────────────────────────────────────────────────────────
+function updateProgress() {
+    const total = routeData.assigned_houses.length;
+    const done  = currentHouseIndex;
+    const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+}
+
+// ─── Stops list ───────────────────────────────────────────────────────────────
+function buildStopsList() {
+    refreshStopsList();
+}
+
+function refreshStopsList() {
+    const container = document.getElementById('stopsList');
+    if (!container || !routeData) return;
+    container.innerHTML = '';
+
+    const houses = routeData.assigned_houses;
+    const nextStops = [];
+    
+    // Show only the next 3 upcoming stops: indices starting from currentHouseIndex + 1
+    for (let offset = 1; offset <= 3; offset++) {
+        const idx = currentHouseIndex + offset;
+        if (idx < houses.length) {
+            nextStops.push({ house: houses[idx], index: idx });
         }
     }
 
-    // ─── Draw route line + house markers ─────────────────────────────────────
-    function drawRouteOnMap() {
-        const coords = routeData.route_coordinates.map(p => [p[0], p[1]]);
-
-        if (routePolyline) map.removeLayer(routePolyline);
-        routePolyline = L.polyline(coords, { color: '#DC2626', weight: 5, opacity: 0.85 }).addTo(map);
-        map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
-
-        // House & bin markers
-        const houseIcon = L.divIcon({
-            html: '<div style="background:#F97316;color:white;width:30px;height:30px;border-radius:6px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🏠</div>',
-            iconSize: [30, 30], iconAnchor: [15, 15], className: ''
-        });
-        const binIcon = L.divIcon({
-            html: '<div style="background:#6B7280;color:white;width:30px;height:30px;border-radius:6px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🗑️</div>',
-            iconSize: [30, 30], iconAnchor: [15, 15], className: ''
-        });
-        routeData.assigned_houses.forEach(h => {
-            const isBin = h.type === 'bin';
-            L.marker([h.lat, h.lng], { icon: isBin ? binIcon : houseIcon }).addTo(map)
-              .bindTooltip(`${h.id} — ${isBin ? 'Community Bin' : 'Garbage Pickup'}`, { permanent: false });
-        });
-
-        // Processing Center marker (START)
-        L.marker(PROCESSING, {
-            icon: L.divIcon({
-                html: '<div style="background:#059669;color:white;width:38px;height:38px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🏭</div>',
-                iconSize: [38, 38], iconAnchor: [19, 19], className: ''
-            })
-        }).addTo(map).bindTooltip('🟢 Processing Center', { permanent: true, direction: 'right', offset: [20, 0] });
-
-        // Depot marker (END)
-        L.marker(DEPOT, {
-            icon: L.divIcon({
-                html: '<div style="background:#7C3AED;color:white;width:38px;height:38px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🏁</div>',
-                iconSize: [38, 38], iconAnchor: [19, 19], className: ''
-            })
-        }).addTo(map).bindTooltip('🔴 Depot', { permanent: true, direction: 'right', offset: [20, 0] });
+    if (nextStops.length === 0) {
+        container.innerHTML = '<div style="color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0;">No more upcoming stops</div>';
+        return;
     }
 
-    // ─── Build house list in sidebar ─────────────────────────────────────────
-    function buildHouseList() {
-        const list = document.getElementById('houseList');
-        list.innerHTML = '';
-        routeData.assigned_houses.forEach((h, i) => {
-            const div = document.createElement('div');
-            div.className = 'house-item';
-            div.id = `hitem-${i}`;
-            div.innerHTML = `<span>🏠 ${h.id}</span><span class="hstatus">Pending</span>`;
-            list.appendChild(div);
-        });
+    nextStops.forEach(({ house, index }) => {
+        const el = document.createElement('div');
+        el.className = 'stop-item';
+        el.innerHTML = `
+            <div class="stop-num">${index + 1}</div>
+            <div class="stop-info">
+                <div class="sid">${house.id}</div>
+                <div class="stype">${house.type === 'bin' ? '<i class="fa-solid fa-trash"></i> Community Bin' : '<i class="fa-solid fa-house"></i> House'}</div>
+            </div>
+            <div class="stop-status"><i class="fa-solid fa-hourglass-start" style="color: #64748B"></i></div>`;
+        container.appendChild(el);
+    });
+}
+
+// ─── Distance & ETA helpers ──────────────────────────────────────────────────
+function calcDistanceM(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function updateGuidance() {
+    if (!routeData) return;
+    const houses = routeData.assigned_houses;
+    const total  = houses.length;
+
+    if (currentHouseIndex >= total) {
+        document.getElementById('guidanceDist').textContent = '—';
+        document.getElementById('guidanceEta').textContent  = '—';
+        document.getElementById('guidanceNext').textContent = 'Depot';
+        return;
     }
 
-    // ─── Setup UI ─────────────────────────────────────────────────────────────
-    function setupUI() {
-        document.getElementById('loadingMsg').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        document.getElementById('truckIdDisplay').textContent = currentTruckId;
-        document.getElementById('totalHousesDisplay').textContent = routeData.assigned_houses.length;
-        updateProgress();
+    const target = houses[currentHouseIndex];
+    const distM  = calcDistanceM(truckLat, truckLng, target.lat, target.lng);
+    const speedMS = 20 * 1000 / 3600; // 20 km/h in m/s
+    const etaSec  = distM / speedMS;
+
+    const distTxt = distM < 1000 ? `${Math.round(distM)} m` : `${(distM/1000).toFixed(1)} km`;
+    const etaTxt  = etaSec < 60  ? `< 1 min` : `${(etaSec/60).toFixed(1)} min`;
+    const nextId  = houses[currentHouseIndex + 1] ? houses[currentHouseIndex + 1].id : 'Depot';
+
+    document.getElementById('guidanceDist').textContent = distTxt;
+    document.getElementById('guidanceEta').textContent  = etaTxt;
+    document.getElementById('guidanceNext').textContent = nextId;
+}
+
+// ─── Start route — delegates to backend ──────────────────────────────────────
+async function startRoute() {
+    if (!routeData) return;
+    document.getElementById('startBtn').disabled = true;
+    setStatusText('Starting route...');
+    try {
+        const res = await fetch('/api/start_t1_route', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) {
+            setStatusText('Error: ' + (data.error || 'Could not start'));
+            document.getElementById('startBtn').disabled = false;
+            return;
+        }
+        setStatusText('Moving to first stop...');
+        setStatusDot('moving');
+    } catch (e) {
+        setStatusText('Network error — retrying...');
         document.getElementById('startBtn').disabled = false;
     }
+}
 
-    // ─── Find closest path index for a lat/lng ────────────────────────────────
-    function findClosestPathIndex(lat, lng) {
-        let minDist = Infinity, closest = 0;
-        routeData.route_coordinates.forEach((p, i) => {
-            const d = (p[0] - lat) ** 2 + (p[1] - lng) ** 2;
-            if (d < minDist) { minDist = d; closest = i; }
-        });
-        return closest;
-    }
+// ─── Collect — delegates to backend ──────────────────────────────────────────
+async function collectAndNext() {
+    if (!isPaused) return;
+    document.getElementById('collectBtn').disabled = true;
+    document.getElementById('skipBtn').disabled    = true;
+    try {
+        await fetch('/api/collect_stop', { method: 'POST' });
+    } catch (e) {}
+    // UI updates via next poll tick
+}
 
-    // ─── Start route ──────────────────────────────────────────────────────────
-    function startRoute() {
-        if (!routeData) return;
-        pathIndex = 0;
-        currentHouseIndex = 0;
-        isMoving = true;
-        isPaused = false;
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('collectBtn').disabled = true;
-        document.getElementById('statusText').textContent = 'Moving...';
-        scheduleMove();
-    }
+// ─── Skip — delegates to backend ─────────────────────────────────────────────
+async function skipStop() {
+    if (!isPaused) return;
+    document.getElementById('collectBtn').disabled = true;
+    document.getElementById('skipBtn').disabled    = true;
+    try {
+        await fetch('/api/skip_stop', { method: 'POST' });
+    } catch (e) {}
+    // UI updates via next poll tick
+}
 
-    // ─── Core movement loop ───────────────────────────────────────────────────
-    function scheduleMove() {
-        if (moveTimer) clearTimeout(moveTimer);
-        moveTimer = setTimeout(moveStep, MOVE_INTERVAL_MS);
-    }
+// ─── Backend polling (300ms) ──────────────────────────────────────────────────
+function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollT1State, 300);
+}
 
-    function moveStep() {
-        if (!isMoving || isPaused) return;
+async function pollT1State() {
+    if (!routeData) return;
+    try {
+        const res  = await fetch('/api/t1_state');
+        const data = await res.json();
+        if (!data.ready) return;
 
-        const path = routeData.route_coordinates;
+        // Sync movement state from backend
+        isMoving          = data.moving;
+        isPaused          = data.paused;
+        currentHouseIndex = data.current_house_index;
 
-        // Reached end of path
-        if (pathIndex >= path.length) {
-            finishRoute();
-            return;
+        // Update truck position on map and GPS display
+        updateTruckPosition(data.lat, data.lng);
+
+        // Progress bar uses path_index over total route coords
+        const totalCoords = routeData.route_coordinates.length;
+        const pct = totalCoords > 0 ? Math.min(100, Math.round((data.path_index / totalCoords) * 100)) : 0;
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressPct').textContent = pct + '%';
+
+        // Button states
+        document.getElementById('collectBtn').disabled = !isPaused;
+        document.getElementById('skipBtn').disabled    = !isPaused;
+
+        // Status text
+        if (data.completed) {
+            setStatusText('✅ Route complete! Back at depot.');
+            setStatusDot('done');
+        } else if (isPaused) {
+            setStatusText(`At ${data.current_stop_id} — tap Waste Collected`);
+            setStatusDot('stopped');
+        } else if (isMoving) {
+            setStatusText('Moving to next stop...');
+            setStatusDot('moving');
         }
 
-        const [lat, lng] = path[pathIndex];
-        updateTruckMarker(lat, lng);
-        syncToBackend(lat, lng);
-
-        // Check if we've reached the current target house
-        const houses = routeData.assigned_houses;
-        if (currentHouseIndex < houses.length) {
-            const targetHouse = houses[currentHouseIndex];
-            // Stop when we reach or pass the house's path index
-            if (pathIndex >= targetHouse._pathIndex) {
-                // Snap to house position
-                updateTruckMarker(targetHouse.lat, targetHouse.lng);
-                syncToBackend(targetHouse.lat, targetHouse.lng);
-
-                isPaused = true;
-                document.getElementById('collectBtn').disabled = false;
-                document.getElementById('statusText').textContent = `Stopped at ${targetHouse.id} — click Collect & Next`;
-                highlightCurrentHouse(currentHouseIndex);
-                updateProgress();
-                return; // Don't schedule next move — wait for collect click
-            }
+        updateStopPanel();
+        refreshStopsList();
+        updateGuidance();
+        if (data.eta) {
+            const distM = data.eta.distance_m || 0;
+            const distTxt = distM < 1000 ? `${Math.round(distM)} m` : `${(distM/1000).toFixed(1)} km`;
+            document.getElementById('guidanceDist').textContent = distTxt;
+            document.getElementById('guidanceEta').textContent = data.eta.eta_text || '—';
+            document.getElementById('guidanceNext').textContent = data.eta.next_stop_id || 'Depot';
         }
+    } catch (e) {}
+}
 
-        pathIndex++;
-        scheduleMove();
-    }
+function finishRoute() {
+    // Route completion is now detected via pollT1State (data.completed)
+    updateTruckPosition(DEPOT[0], DEPOT[1]);
+    setStatusText('✅ Route complete! Back at depot.');
+    setStatusDot('done');
+    updateStopPanel();
+    refreshStopsList();
+}
 
-    // ─── Collect & Next ───────────────────────────────────────────────────────
-    function collectAndNext() {
-        if (!isPaused) return;
+// ─── Truck position tracking ──────────────────────────────────────────────────
+function updateTruckPosition(lat, lng) {
+    truckLat = lat;
+    truckLng = lng;
 
-        const house = routeData.assigned_houses[currentHouseIndex];
-        if (!house) return;
+    // Update GPS display
+    document.getElementById('gpsCoords').textContent  = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    document.getElementById('gpsDotLabel').textContent = isMoving ? 'Truck moving' : (isPaused ? 'Stopped at stop' : 'At Processing Center');
+    updateGuidance();
 
-        // Mark collected in backend
-        fetch('/api/mark_house_complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ house_id: house.id, truck_id: currentTruckId })
-        }).catch(() => {});
-
-        // Update house list UI
-        const item = document.getElementById(`hitem-${currentHouseIndex}`);
-        if (item) {
-            item.classList.remove('current');
-            item.classList.add('completed');
-            item.querySelector('.hstatus').textContent = '✅ Collected';
-        }
-
-        currentHouseIndex++;
-        isPaused = false;
-        document.getElementById('collectBtn').disabled = true;
-
-        updateProgress();
-
-        // All houses done → head to depot
-        if (currentHouseIndex >= routeData.assigned_houses.length) {
-            document.getElementById('statusText').textContent = 'All collected! Returning to depot...';
-            isMoving = true;
-            scheduleMove();
-            return;
-        }
-
-        document.getElementById('statusText').textContent = 'Moving to next house...';
-        isMoving = true;
-        scheduleMove();
-    }
-
-    // ─── Finish route ─────────────────────────────────────────────────────────
-    function finishRoute() {
-        isMoving = false;
-        updateTruckMarker(DEPOT[0], DEPOT[1]);
-        syncToBackend(DEPOT[0], DEPOT[1]);
-        // Snap to depot coords
-        document.getElementById('collectBtn').disabled = true;
-        document.getElementById('statusText').textContent = '✅ Route complete! Back at depot.';
-        updateProgress();
-    }
-
-    // ─── Update truck marker on driver map ───────────────────────────────────
-    function updateTruckMarker(lat, lng) {
-        if (truckMarker) {
-            truckMarker.setLatLng([lat, lng]);
-        } else {
-            truckMarker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    html: '<div style="background:#dc2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🚛</div>',
-                    iconSize: [36, 36], iconAnchor: [18, 18], className: ''
-                })
-            }).addTo(map);
-        }
-        document.getElementById('coordsDisplay').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    }
-
-    // ─── Sync position to backend (admin sees this) ───────────────────────────
-    function syncToBackend(lat, lng) {
-        fetch('/api/update_truck_position', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                truck_id: currentTruckId,
-                lat: lat,
-                lng: lng,
-                pathIndex: pathIndex,
-                stopped: isPaused
+    // Map marker
+    if (truckMarker) {
+        truckMarker.setLatLng([lat, lng]);
+    } else {
+        truckMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                html: '<div style="background:#dc2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
+                iconSize: [36, 36], iconAnchor: [18, 18], className: ''
             })
-        }).catch(() => {});
+        }).addTo(map);
     }
+}
 
-    // ─── UI helpers ───────────────────────────────────────────────────────────
-    function updateProgress() {
-        const total = routeData ? routeData.assigned_houses.length : 0;
-        const done = currentHouseIndex;
-        document.getElementById('progressDisplay').textContent = `${done}/${total}`;
-        document.getElementById('progressBar').style.width = total > 0 ? `${(done / total) * 100}%` : '0%';
-    }
 
-    function highlightCurrentHouse(index) {
-        document.querySelectorAll('.house-item').forEach(el => el.classList.remove('current'));
-        const el = document.getElementById(`hitem-${index}`);
-        if (el) {
-            el.classList.add('current');
-            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }
+// ─── Draw map ─────────────────────────────────────────────────────────────────
+function drawRouteOnMap() {
+    const coords = routeData.route_coordinates.map(p => [p[0], p[1]]);
+    if (routePolyline) map.removeLayer(routePolyline);
+    routePolyline = L.polyline(coords, { color: '#DC2626', weight: 4, opacity: 0.8 }).addTo(map);
+    map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
 
-    function showMsg(id, text, type) {
-        const el = document.getElementById(id);
-        el.textContent = text;
-        el.className = `msg msg-${type}`;
-        el.style.display = 'block';
-    }
+    const houseIcon = (isActive) => L.divIcon({
+        html: `<div style="background:${isActive ? '#2563eb' : '#F97316'};color:white;width:28px;height:28px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><i class="fa-solid fa-house"></i></div>`,
+        iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+    });
+    const binIcon = L.divIcon({
+        html: '<div style="background:#6B7280;color:white;width:28px;height:28px;border-radius:6px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><i class="fa-solid fa-trash"></i></div>',
+        iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+    });
 
-    // ─── Event listeners ──────────────────────────────────────────────────────
-    document.getElementById('startBtn').addEventListener('click', startRoute);
-    document.getElementById('collectBtn').addEventListener('click', collectAndNext);
+    routeData.assigned_houses.forEach(h => {
+        L.marker([h.lat, h.lng], { icon: h.type === 'bin' ? binIcon : houseIcon(false) })
+          .addTo(map)
+          .bindTooltip(`${h.id}`, { permanent: false });
+    });
 
-    // ─── Poll for reset signal ────────────────────────────────────────────────
-    setInterval(async () => {
-        try {
-            const res = await fetch('/api/system_status');
-            const data = await res.json();
-            if (data.reset === true) location.reload();
-        } catch (e) {}
-    }, 2000);
+    L.marker(PROCESSING, {
+        icon: L.divIcon({
+            html: '<div style="background:#16A34A;color:white;width:36px;height:36px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-industry"></i></div>',
+            iconSize: [36, 36], iconAnchor: [18, 18], className: ''
+        })
+    }).addTo(map).bindTooltip('Processing Center', { permanent: true, direction: 'right', offset: [20, 0] });
 
-    // ─── Poll to load route if not loaded yet ─────────────────────────────────
-    setInterval(() => {
-        if (!routeData) loadRoute();
-    }, 3000);
+    L.marker(DEPOT, {
+        icon: L.divIcon({
+            html: '<div style="background:#7C3AED;color:white;width:36px;height:36px;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-flag-checkered"></i></div>',
+            iconSize: [36, 36], iconAnchor: [18, 18], className: ''
+        })
+    }).addTo(map).bindTooltip('Depot', { permanent: true, direction: 'right', offset: [20, 0] });
+}
 
-    // ─── Init ─────────────────────────────────────────────────────────────────
-    window.onload = () => {
-        initMap();
-        loadRoute();
-    };
-    </script>
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function findClosestPathIndex(lat, lng) {
+    let minD = Infinity, idx = 0;
+    routeData.route_coordinates.forEach((p, i) => {
+        const d = (p[0] - lat) ** 2 + (p[1] - lng) ** 2;
+        if (d < minD) { minD = d; idx = i; }
+    });
+    return idx;
+}
+
+function setStatusText(txt) {
+    document.getElementById('statusText').textContent = txt;
+    document.getElementById('statusBarText').textContent = txt;
+}
+
+function setStatusDot(state) {
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot' + (state ? ' ' + state : '');
+    const gpsDot = document.getElementById('gpsDot');
+    gpsDot.className = 'gps-dot' + (state === 'moving' ? ' active' : '');
+}
+
+function setLoading(msg, isError = false) {
+    document.getElementById('loadingMsg').textContent = msg;
+    document.getElementById('loadingMsg').style.color = isError ? '#ef4444' : '';
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('mainContent').style.display = 'none';
+}
+
+// ─── Invalidate map size after layout settles ────────────────────────────────
+function refreshMapSize() {
+    if (map) setTimeout(() => map.invalidateSize(), 50);
+}
+window.addEventListener('resize', refreshMapSize);
+
+// ─── Event listeners ──────────────────────────────────────────────────────────
+document.getElementById('startBtn').addEventListener('click', startRoute);
+
+// ─── Reset polling ────────────────────────────────────────────────────────────
+setInterval(async () => {
+    try {
+        const res  = await fetch('/api/system_status');
+        const data = await res.json();
+        if (data.reset === true) location.reload();
+    } catch (e) {}
+}, 2000);
+
+// ─── Route polling (retry until loaded) ─────────────────────────────────────
+setInterval(() => { if (!routeData) loadRoute(); }, 3000);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.onload = () => {
+    initMap();
+    loadRoute();
+    refreshMapSize();
+};
+</script>
 </body>
 </html>

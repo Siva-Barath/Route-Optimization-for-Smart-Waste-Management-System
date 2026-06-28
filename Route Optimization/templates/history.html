@@ -4,25 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection History — Smart Waste Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #0F172A;      /* Slate 900 */
+            --secondary: #1E293B;    /* Slate 800 */
+            --accent: #2563EB;       /* Blue 600 */
+            --accent-hover: #1D4ED8; /* Blue 700 */
+            --success: #16A34A;      /* Green 600 */
+            --warning: #D97706;      /* Amber 600 */
+            --danger: #DC2626;       /* Red 600 */
+            --bg-light: #F8FAFC;     /* Slate 50 */
+            --border: #E2E8F0;       /* Slate 200 */
+            --text-main: #0F172A;    /* Slate 900 */
+            --text-muted: #64748B;   /* Slate 500 */
+            --text-light: #FFFFFF;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #F5F6F8; color: #111827; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-light); color: var(--text-main); }
 
         .header {
-            background: #1F2937; color: white;
+            background: var(--secondary); color: white;
             padding: 20px 32px;
             display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        .header-title { font-size: 22px; font-weight: 700; }
-        .header-sub { font-size: 13px; color: #9CA3AF; margin-top: 3px; }
+        .header-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        .header-sub { font-size: 13px; color: #94A3B8; margin-top: 3px; }
+        
         .back-btn {
-            background: #374151; color: white; border: none;
+            background: rgba(255, 255, 255, 0.08); color: white; border: 1px solid rgba(255,255,255,0.1);
             padding: 9px 18px; border-radius: 7px; font-size: 13px;
             font-weight: 600; cursor: pointer; text-decoration: none;
             display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.2s ease;
         }
-        .back-btn:hover { background: #4B5563; }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.15); }
 
         .content { max-width: 1200px; margin: 32px auto; padding: 0 24px; }
 
@@ -33,113 +52,122 @@
         }
         .summary-card {
             background: white; border-radius: 12px; padding: 20px;
-            border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.02);
             text-align: center;
+            transition: transform 0.2s;
         }
-        .summary-card .val { font-size: 32px; font-weight: 700; color: #7C3AED; }
-        .summary-card .lbl { font-size: 12px; color: #6B7280; margin-top: 4px; }
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.04);
+        }
+        .summary-card .val { font-size: 30px; font-weight: 700; color: var(--accent); }
+        .summary-card .lbl { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
 
-        /* Truck filter tabs */
+        /* Filter bar */
         .filter-bar {
             display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
             align-items: center;
         }
-        .filter-label { font-size: 13px; color: #6B7280; font-weight: 500; margin-right: 4px; }
+        .filter-label { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-right: 4px; }
+        
         .tab {
-            padding: 7px 16px; border-radius: 20px; border: 2px solid #E5E7EB;
+            padding: 7px 16px; border-radius: 20px; border: 2px solid var(--border);
             background: white; font-size: 13px; font-weight: 600; cursor: pointer;
-            transition: all 0.15s; color: #374151;
+            transition: all 0.15s; color: var(--text-muted);
+            display: inline-flex; align-items: center; gap: 6px;
         }
         .tab.active { border-color: currentColor; color: white; }
-        .tab:hover:not(.active) { background: #F3F4F6; }
+        .tab:hover:not(.active) { background: #F1F5F9; color: var(--text-main); }
 
         /* Search */
         .search-box {
             margin-left: auto;
-            padding: 8px 14px; border: 1px solid #D1D5DB; border-radius: 8px;
-            font-size: 13px; width: 220px; outline: none;
+            padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 13px; width: 240px; outline: none;
+            background: white;
         }
-        .search-box:focus { border-color: #7C3AED; }
+        .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
 
         /* Table */
         .table-card {
             background: white; border-radius: 12px;
-            border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.02);
             overflow: hidden;
         }
         .table-header {
-            padding: 16px 20px; border-bottom: 1px solid #E5E7EB;
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
             display: flex; justify-content: space-between; align-items: center;
         }
-        .table-title { font-size: 15px; font-weight: 600; }
-        .record-count { font-size: 12px; color: #6B7280; }
+        .table-title { font-size: 15px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .record-count { font-size: 12px; color: var(--text-muted); font-weight: 600; }
 
         table { width: 100%; border-collapse: collapse; }
         thead th {
-            background: #F9FAFB; padding: 11px 16px;
-            text-align: left; font-size: 12px; font-weight: 600;
-            color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;
-            border-bottom: 1px solid #E5E7EB;
+            background: #F8FAFC; padding: 12px 16px;
+            text-align: left; font-size: 11px; font-weight: 600;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
         }
-        tbody tr { border-bottom: 1px solid #F3F4F6; transition: background 0.1s; }
-        tbody tr:hover { background: #FAFAFA; }
+        tbody tr { border-bottom: 1px solid #F1F5F9; transition: background 0.1s; }
+        tbody tr:hover { background: #F8FAFC; }
         tbody tr:last-child { border-bottom: none; }
-        td { padding: 12px 16px; font-size: 13px; }
+        td { padding: 14px 16px; font-size: 13px; }
 
         .truck-badge {
-            display: inline-flex; align-items: center; gap: 5px;
-            padding: 3px 10px; border-radius: 12px; font-size: 12px;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 12px; font-size: 11px;
             font-weight: 700; color: white;
         }
         .type-badge {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
         }
-        .type-house { background: #FFF7ED; color: #C2410C; }
-        .type-bin   { background: #F0FDF4; color: #15803D; }
+        .type-house { background: #EFF6FF; color: var(--accent); border: 1px solid rgba(37,99,235,0.15); }
+        .type-bin   { background: #FEF3C7; color: var(--warning); border: 1px solid rgba(217,119,6,0.15); }
 
         .status-collected {
-            display: inline-flex; align-items: center; gap: 4px;
-            color: #059669; font-weight: 600; font-size: 12px;
+            display: inline-flex; align-items: center; gap: 6px;
+            color: var(--success); font-weight: 700; font-size: 12px;
         }
 
         .empty-state {
-            text-align: center; padding: 60px 20px; color: #9CA3AF;
+            text-align: center; padding: 60px 20px; color: var(--text-muted);
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
         }
-        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-        .empty-state p { font-size: 15px; }
+        .empty-state .icon { font-size: 40px; color: var(--text-muted); opacity: 0.6; }
+        .empty-state p { font-size: 14px; }
 
         .refresh-btn {
-            background: #7C3AED; color: white; border: none;
+            background: var(--accent); color: white; border: none;
             padding: 8px 16px; border-radius: 7px; font-size: 13px;
-            font-weight: 600; cursor: pointer;
+            font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            transition: all 0.2s ease;
         }
-        .refresh-btn:hover { background: #6D28D9; }
+        .refresh-btn:hover { background: var(--accent-hover); box-shadow: 0 4px 10px rgba(37,99,235,0.25); }
 
         /* Per-truck section headers */
         .truck-section { margin-bottom: 28px; }
         .truck-section-header {
             display: flex; align-items: center; gap: 10px;
             margin-bottom: 12px; padding: 12px 16px;
-            border-radius: 8px; color: white; font-weight: 700; font-size: 15px;
+            border-radius: 8px; color: white; font-weight: 700; font-size: 14px;
         }
         .truck-section-header .stats {
-            margin-left: auto; font-size: 12px; font-weight: 500; opacity: 0.9;
+            margin-left: auto; font-size: 11px; font-weight: 500; opacity: 0.9;
         }
-
-        .no-data { color: #9CA3AF; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div>
-        <div class="header-title">📋 Collection History</div>
+        <div class="header-title"><i class="fa-solid fa-clock-rotate-left"></i> Collection History</div>
         <div class="header-sub">Garbage collection records by truck</div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
-        <button class="refresh-btn" onclick="loadHistory()">🔄 Refresh</button>
-        <a href="/" class="back-btn">← Back to Dashboard</a>
+        <button class="refresh-btn" onclick="loadHistory()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        <a href="/" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
     </div>
 </div>
 
@@ -170,13 +198,13 @@
         <span class="filter-label">Filter:</span>
         <button class="tab active" id="tab-all" onclick="setFilter('all')" style="background:#7C3AED;border-color:#7C3AED;">All</button>
         <div id="truckTabs"></div>
-        <input class="search-box" type="text" id="searchInput" placeholder="🔍 Search by ID or type..." oninput="renderTable()">
+        <input class="search-box" type="text" id="searchInput" placeholder="Search by ID or type..." oninput="renderTable()">
     </div>
 
     <!-- Table -->
     <div class="table-card">
         <div class="table-header">
-            <span class="table-title">📦 Collection Records</span>
+            <span class="table-title"><i class="fa-solid fa-box"></i> Collection Records</span>
             <span class="record-count" id="recordCount">0 records</span>
         </div>
         <div id="tableBody"></div>
@@ -223,7 +251,7 @@
             const btn = document.createElement('button');
             btn.className = 'tab';
             btn.id = `tab-${tid}`;
-            btn.textContent = `🚛 ${tid}`;
+            btn.innerHTML = `<i class="fa-solid fa-truck"></i> ${tid}`;
             btn.style.borderColor = color;
             btn.style.color = color;
             btn.onclick = () => setFilter(tid);
@@ -281,7 +309,7 @@
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">📭</div>
+                    <div class="icon"><i class="fa-solid fa-box-open"></i></div>
                     <p>${allRecords.length === 0 ? 'No collections yet. Deploy trucks and start collecting garbage.' : 'No records match your filter.'}</p>
                 </div>`;
             return;
@@ -304,7 +332,7 @@
                 const binCount = records.filter(r => r.type === 'bin').length;
                 html += `
                 <div style="padding:10px 16px;background:${color}18;border-bottom:2px solid ${color}30;display:flex;align-items:center;gap:10px;">
-                    <span style="background:${color};color:white;padding:3px 12px;border-radius:12px;font-size:13px;font-weight:700;">🚛 ${tid}</span>
+                    <span style="background:${color};color:white;padding:3px 12px;border-radius:12px;font-size:13px;font-weight:700;"><i class="fa-solid fa-truck"></i> ${tid}</span>
                     <span style="font-size:12px;color:#6B7280;">${records.length} collected &nbsp;·&nbsp; ${houseCount} houses &nbsp;·&nbsp; ${binCount} bins</span>
                 </div>
                 ${buildRows(records, color)}`;
@@ -322,7 +350,7 @@
                         <th>Location ID</th>
                         <th>Type</th>
                         <th>Truck</th>
-                        <th>Coordinates</th>
+                        <th>Collected At</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -330,20 +358,34 @@
             </table>`;
     }
 
+    function formatTime(ts) {
+        if (!ts) return '—';
+        const d = new Date(ts * 1000);
+        const now = Date.now();
+        const diff = Math.floor((now - ts * 1000) / 1000);
+        let rel;
+        if (diff < 60) rel = diff + 's ago';
+        else if (diff < 3600) rel = Math.floor(diff/60) + 'm ago';
+        else if (diff < 86400) rel = Math.floor(diff/3600) + 'h ago';
+        else rel = Math.floor(diff/86400) + 'd ago';
+        const fmt = d.toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+        return `<span style="font-size:12px;font-weight:600;">${fmt}</span><br><span style="font-size:11px;color:#9CA3AF;">${rel}</span>`;
+    }
+
     function buildRows(records, color) {
-        return records.map((r, i) => {
+        // Sort newest first
+        const sorted = [...records].sort((a, b) => (b.collected_at || 0) - (a.collected_at || 0));
+        return sorted.map((r, i) => {
             const typeClass = r.type === 'bin' ? 'type-bin' : 'type-house';
-            const typeEmoji = r.type === 'bin' ? '🗑️' : '🏠';
-            const lat = r.lat != null ? r.lat.toFixed(4) : '—';
-            const lng = r.lng != null ? r.lng.toFixed(4) : '—';
+            const typeEmoji = r.type === 'bin' ? '<i class="fa-solid fa-trash"></i>' : '<i class="fa-solid fa-house"></i>';
             return `
             <tr>
                 <td style="color:#9CA3AF;font-size:12px;">${i + 1}</td>
                 <td style="font-weight:600;">${r.location_id}</td>
-                <td><span class="type-badge ${typeClass}">${typeEmoji} ${r.type === 'bin' ? 'Bin' : 'House'}</span></td>
-                <td><span class="truck-badge" style="background:${color};">🚛 ${r.truck_id}</span></td>
-                <td style="font-family:monospace;font-size:12px;color:#6B7280;">${lat}, ${lng}</td>
-                <td><span class="status-collected">✅ Collected</span></td>
+                <td><span class="type-badge ${typeClass}">${typeEmoji} &nbsp;${r.type === 'bin' ? 'Bin' : 'House'}</span></td>
+                <td><span class="truck-badge" style="background:${color};"><i class="fa-solid fa-truck"></i> &nbsp;${r.truck_id}</span></td>
+                <td>${formatTime(r.collected_at)}</td>
+                <td><span class="status-collected"><i class="fa-solid fa-circle-check"></i> Collected</span></td>
             </tr>`;
         }).join('');
     }
@@ -351,7 +393,7 @@
     function showEmpty(msg) {
         document.getElementById('tableBody').innerHTML = `
             <div class="empty-state">
-                <div class="icon">⚠️</div>
+                <div class="icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 <p>${msg}</p>
             </div>`;
     }

@@ -14,7 +14,8 @@ Citizens report waste disposal requests through a mobile app or the admin dashbo
 
 | Layer | Technologies |
 |---|---|
-| Backend | Python, Flask |
+| Backend | Python, Flask, SQLAlchemy |
+| Database | PostgreSQL (Historical Analytics, Audit Logs) |
 | Routing & Optimization | OSMnx, NetworkX, Dijkstra, TSP (brute-force + nearest-neighbor), KMeans |
 | Frontend | Leaflet.js, HTML5, CSS3, JavaScript |
 | IoT | ESP32, Ultrasonic Sensors, HTTP/WiFi |
@@ -54,16 +55,16 @@ Citizens report waste disposal requests through a mobile app or the admin dashbo
 - Direction-based rotation on truck markers for realistic movement
 
 ### Admin Dashboard (`/`)
+- Professional Enterprise Executive Console for city-wide operations.
 - Interactive Leaflet map centered on Delhi
 - Click any house to toggle its garbage status (admin marking)
 - Start/stop the 2-minute citizen reporting window
 - Optimize multi-truck routes (triggers clustering + TSP + Dijkstra)
 - Deploy fleet — autonomous trucks start immediately, T1 waits for driver
-- View mode toggle: show all houses or only optimized route houses
-- Fleet Status overlay with per-truck progress bars
-- Route metrics: total distance, stops, efficiency %, fuel saved, CO₂ reduced
+- Live Analytics & Trends (Monthly Collections, Route Efficiency, Citizen Satisfaction)
 - Real-time IoT bin notifications (toast alerts when a bin goes FULL)
-- Collection History button opens the history page
+- Comprehensive Enterprise Audit Log backed by PostgreSQL
+- Executive PDFs and WhatsApp Broadcast integration
 - Full system reset clears all state while preserving house/bin infrastructure
 
 ### Driver App (`/driver`)
@@ -149,10 +150,26 @@ Route Optimization/
 
 ## Installation
 
+### Prerequisites
+- Python 3.10+
+- PostgreSQL database server running locally or remote.
+
+### Setup
 ```bash
 git clone https://github.com/Siva-Barath/Route-Optimization-for-Smart-Waste-Management-System.git
 cd "Route Optimization"
 pip install -r requirements.txt
+```
+
+### Database Configuration
+1. Create a `.env` file from the `.env.example`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Update the `.env` file with your PostgreSQL credentials.
+
+### Run Application
+```bash
 python smart_waste_demo.py
 ```
 
