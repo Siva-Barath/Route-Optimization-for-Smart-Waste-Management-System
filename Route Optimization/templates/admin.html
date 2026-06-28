@@ -1537,7 +1537,7 @@
                         <div class="col-4 performer-card">
                             <div style="font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 12px;"><i class="fa-solid fa-crown" style="color: #F59E0B;"></i> Top Performing Truck</div>
                             <div style="font-size: 28px; font-weight: 800; margin-bottom: 4px;" id="topTruckId">T1</div>
-                            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 16px;" id="topTruckDriver">Driver: Rajesh Kumar</div>
+                            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 16px;" id="topTruckDriver">Driver: T1 Truck Driver</div>
                             <div style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
                                 <div>
                                     <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase;">Collections</div>
@@ -1552,7 +1552,7 @@
                         
                         <div class="col-4 performer-card" style="background: linear-gradient(135deg, #164E63 0%, #083344 100%);">
                             <div style="font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 12px;"><i class="fa-solid fa-user-tie" style="color: #38BDF8;"></i> Top Performing Driver</div>
-                            <div style="font-size: 24px; font-weight: 800; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="topDriverName">Rajesh Kumar</div>
+                            <div style="font-size: 24px; font-weight: 800; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="topDriverName">T1 Truck Driver</div>
                             <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 16px;" id="topDriverRating">⭐ 5.0 Customer Rating</div>
                             <div style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
                                 <div>
@@ -1867,7 +1867,7 @@
                 let gridHtml = '';
                 let bestTruck = 'T1';
                 let maxColl = -1;
-                let bestTruckDriver = 'Rajesh Kumar';
+                let bestTruckDriver = 'T1 Truck Driver';
                 
                 // If live simulation is running, use it. Otherwise use historical performance.
                 if (!isIdle && simulationData && simulationData.multiTruckRoutes) {
@@ -1881,7 +1881,7 @@
                         if (coll > maxColl) {
                             maxColl = coll;
                             bestTruck = tId;
-                            bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                            bestTruckDriver = tId + ' Truck Driver';
                         }
                         
                         gridHtml += `
@@ -1909,7 +1909,7 @@
                         if (coll > maxColl) {
                             maxColl = coll;
                             bestTruck = tId;
-                            bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                            bestTruckDriver = tId + ' Truck Driver';
                         }
                         
                         gridHtml += `
@@ -2201,7 +2201,7 @@
                 let gridHtml = '';
                 let bestTruck = 'T1';
                 let maxColl = -1;
-                let bestTruckDriver = 'Rajesh Kumar';
+                let bestTruckDriver = 'T1 Truck Driver';
                 
                 simulationData.multiTruckRoutes.forEach(r => {
                     const tId = r.truck_id;
@@ -2213,7 +2213,7 @@
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     gridHtml += `
@@ -2481,7 +2481,7 @@
                 let gridHtml = '';
                 let bestTruck = 'T1';
                 let maxColl = -1;
-                let bestTruckDriver = 'Rajesh Kumar';
+                let bestTruckDriver = 'T1 Truck Driver';
                 
                 simulationData.multiTruckRoutes.forEach(r => {
                     const tId = r.truck_id;
@@ -2493,7 +2493,7 @@
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     gridHtml += `
@@ -2759,7 +2759,7 @@
                 let gridHtml = '';
                 let bestTruck = 'T1';
                 let maxColl = -1;
-                let bestTruckDriver = 'Rajesh Kumar';
+                let bestTruckDriver = 'T1 Truck Driver';
                 
                 simulationData.multiTruckRoutes.forEach(r => {
                     const tId = r.truck_id;
@@ -2771,7 +2771,7 @@
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     gridHtml += `
@@ -5333,7 +5333,7 @@ let notifiedBins = new Set();
                     }
                     
                     // Driver name & specific T1 overrides
-                    const driverName = tid === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                    const driverName = tid + ' Truck Driver';
                     if (tid === 'T1' && t1State && t1State.ready) {
                         currentStop = t1State.current_stop_id || (t1State.completed ? 'Depot (Completed)' : 'En Route');
                         if (t1State.completed) {
@@ -5860,7 +5860,7 @@ let notifiedBins = new Set();
                 let gridHtml = '';
                 let bestTruck = 'T1';
                 let maxColl = -1;
-                let bestTruckDriver = 'Rajesh Kumar';
+                let bestTruckDriver = 'T1 Truck Driver';
                 
                 simulationData.multiTruckRoutes.forEach(r => {
                     const tId = r.truck_id;
@@ -5872,7 +5872,7 @@ let notifiedBins = new Set();
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     gridHtml += `
@@ -6160,7 +6160,7 @@ let notifiedBins = new Set();
             let gridHtml = '';
             let bestTruck = 'T1';
             let maxColl = -1;
-            let bestTruckDriver = 'Rajesh Kumar';
+            let bestTruckDriver = 'T1 Truck Driver';
             
             // If live simulation is running, use it. Otherwise use historical performance.
             if (!isIdle && typeof simulationData !== 'undefined' && simulationData && simulationData.multiTruckRoutes) {
@@ -6174,7 +6174,7 @@ let notifiedBins = new Set();
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     const isTruckActive = typeof activeTrucksState !== 'undefined' && activeTrucksState.has(tId);
@@ -6204,7 +6204,7 @@ let notifiedBins = new Set();
                     if (coll > maxColl) {
                         maxColl = coll;
                         bestTruck = tId;
-                        bestTruckDriver = tId === 'T1' ? 'Rajesh Kumar' : 'Autonomous Auto-Pilot';
+                        bestTruckDriver = tId + ' Truck Driver';
                     }
                     
                     gridHtml += `
