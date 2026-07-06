@@ -6,7 +6,7 @@ A production-ready smart city waste management system with real-time IoT bin mon
 
 ## Project Overview
 
-Citizens report waste disposal requests through a mobile app or the admin dashboard. IoT smart bins send real-time fill-level data via ESP32 sensors. The system clusters all garbage locations, computes optimized multi-truck collection routes using real road networks, and deploys a fleet where T1 is driver-controlled and all other trucks run autonomously. Municipal authorities monitor the entire operation live on the admin dashboard.
+Citizens report waste disposal requests through a dedicated **Mobile Citizen App** or the admin dashboard. IoT smart bins send real-time fill-level data via ESP32 sensors. The system clusters all garbage locations, computes optimized multi-truck collection routes using real road networks, and deploys a fleet where T1 is driver-controlled and all other trucks run autonomously. Municipal authorities monitor the entire operation live on the admin dashboard, and can dispatch automated **WhatsApp notifications** and PDF monthly summaries directly to citizens.
 
 ---
 
@@ -74,7 +74,7 @@ A professional enterprise executive interface divided into three primary modules
 - Dual-state architecture: loads historical analytics from PostgreSQL when idle, and transitions to live metrics during active simulations.
 - Live Analytics & Trends (Monthly Collections, Route Efficiency, Citizen Satisfaction).
 - Comprehensive Enterprise Audit Log backed by PostgreSQL for detailed historical tracking.
-- Executive PDFs and WhatsApp Broadcast integration.
+- **Automated WhatsApp Notifications**: Broadcast collection status, route updates, and monthly PDF summaries directly to registered citizens' mobile phones.
 - Full system reset clears all live state while preserving infrastructure and historical logs.
 
 ### Driver App (`/driver`)
@@ -87,12 +87,12 @@ A professional enterprise executive interface divided into three primary modules
 - Finishes at the Depot
 - Auto-reloads on system reset signal
 
-### User App (`/app`)
-- Combined register + login interface
-- New users pick their location on a map, enter name and phone
-- Returning users log in with phone number
-- During the reporting window, users see Yes/No garbage buttons
-- Reports update the admin dashboard within the next poll cycle
+### Mobile Citizen App (`/app`)
+- A mobile-first web application designed for citizens.
+- Combined registration and login interface using mobile numbers.
+- New users drop a pin on the interactive map to register their house location along with their name and phone number.
+- During the active reporting window, citizens can seamlessly submit garbage collection requests via simple Yes/No buttons.
+- Citizen reports are instantly synced to the central database and update the admin dashboard within the next poll cycle.
 
 ### Collection History (`/history`)
 - Full table of all collected locations grouped by truck
