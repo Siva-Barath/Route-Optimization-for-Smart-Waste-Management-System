@@ -55,17 +55,27 @@ Citizens report waste disposal requests through a mobile app or the admin dashbo
 - Direction-based rotation on truck markers for realistic movement
 
 ### Admin Dashboard (`/`)
-- Professional Enterprise Executive Console for city-wide operations.
-- Interactive Leaflet map centered on Delhi
-- Click any house to toggle its garbage status (admin marking)
-- Start/stop the 2-minute citizen reporting window
-- Optimize multi-truck routes (triggers clustering + TSP + Dijkstra)
-- Deploy fleet — autonomous trucks start immediately, T1 waits for driver
-- Live Analytics & Trends (Monthly Collections, Route Efficiency, Citizen Satisfaction)
-- Real-time IoT bin notifications (toast alerts when a bin goes FULL)
-- Comprehensive Enterprise Audit Log backed by PostgreSQL
-- Executive PDFs and WhatsApp Broadcast integration
-- Full system reset clears all state while preserving house/bin infrastructure
+A professional enterprise executive interface divided into three primary modules:
+
+**1. Operations Map**
+- Interactive Leaflet map centered on Delhi for real-time visualization.
+- Click any house to toggle its garbage status (admin marking).
+- Start/stop the 2-minute citizen reporting window and trigger Route Optimization.
+- Deploy fleet — autonomous trucks start immediately, T1 waits for driver.
+- Real-time IoT bin notifications (toast alerts when a bin goes FULL).
+
+**2. Fleet Command Center**
+- A map-less, enterprise-grade operations console.
+- Features real-time Fleet Status, Current Mission tracking, and Driver Information (e.g. "T1 Truck Driver").
+- Displays Upcoming Stops, active Fleet Timelines, and Truck Health KPIs.
+- Quick Action Cards for rapid administrative control.
+
+**3. Reports & Analytics**
+- Dual-state architecture: loads historical analytics from PostgreSQL when idle, and transitions to live metrics during active simulations.
+- Live Analytics & Trends (Monthly Collections, Route Efficiency, Citizen Satisfaction).
+- Comprehensive Enterprise Audit Log backed by PostgreSQL for detailed historical tracking.
+- Executive PDFs and WhatsApp Broadcast integration.
+- Full system reset clears all live state while preserving infrastructure and historical logs.
 
 ### Driver App (`/driver`)
 - Loads T1's assigned route from the backend
@@ -145,6 +155,8 @@ Route Optimization/
 | GET | `/api/get_collection_history` | Full collection records |
 | POST | `/api/reset_simulation` | Full system reset |
 | GET | `/api/system_status` | Reset signal for driver app |
+| GET | `/api/admin/executive_analytics` | PostgreSQL-backed historical analytics for the dashboard |
+| POST | `/api/admin/trigger_monthly_summaries` | Trigger automated monthly reporting routines |
 
 ---
 
