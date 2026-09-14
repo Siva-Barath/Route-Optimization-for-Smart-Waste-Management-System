@@ -4670,7 +4670,7 @@ let notifiedBins = new Set();
         
         function updateHouseVisibility() {
             simulationData.houses.forEach(house => {
-                if (markers[house.id] && map.hasLayer(markers[house.id])) {
+                if (markers[house.id]) {
                     if (viewMode === 'optimized') {
                         // Show only selected houses
                         if (!selectedHouseIds.has(house.id)) {
