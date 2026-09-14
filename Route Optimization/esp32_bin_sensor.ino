@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 
 // ── WIFI ──────────────────────────────────────────────────────────────────────
 const char* ssid     = "SIVA BARATH WIFI";
@@ -7,7 +8,7 @@ const char* password = "enterpassword";
 
 // ── SERVER (must be on SAME network as ESP32) ─────────────────────────────────
 // Run `ipconfig` on your PC and use the IP shown under the hotspot adapter
-const char* server_url = "http://10.186.73.48:5000/api/bin_status";
+const char* server_url = "https://route-optimization-for-smart-waste.onrender.com/api/bin_status";
 
 // ── BIN CONFIG ────────────────────────────────────────────────────────────────
 const String BIN_ID = "B1";
@@ -49,8 +50,11 @@ void sendBinStatus(String status) {
   Serial.println(payload);
 
   for (int attempt = 1; attempt <= 3; attempt++) {
+    WiFiClientSecure client;
+    client.setInsecure(); // DEMO ONLY: Bypass SSL certificate validation
+
     HTTPClient http;
-    http.begin(server_url);
+    http.begin(client, server_url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000); // 5 second timeout
 
@@ -61,7 +65,10 @@ void sendBinStatus(String status) {
     Serial.println(code);
 
     if (code == 200) {
-      Serial.println("✅ Server acknowledged: " + status);
+      Serial.println("o. Server acknowledged: " + status);
+      String response = http.getString();
+      Serial.print("Response body: ");
+      Serial.println(response);
       http.end();
       return;
     } else if (code < 0) {
@@ -70,6 +77,9 @@ void sendBinStatus(String status) {
     } else {
       Serial.print("⚠️ HTTP error: ");
       Serial.println(code);
+      String response = http.getString();
+      Serial.print("Response body: ");
+      Serial.println(response);
     }
 
     http.end();
