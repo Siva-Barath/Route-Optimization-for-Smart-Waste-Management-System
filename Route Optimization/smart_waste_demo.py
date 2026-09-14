@@ -1,7 +1,11 @@
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask import Flask, render_template, jsonify, request
 import os
 import random
 import time
+import jwt
+import datetime
 import osmnx as ox
 import networkx as nx
 from itertools import permutations
@@ -308,6 +312,56 @@ PROCESSING_LAT, PROCESSING_LNG = 28.6139, 77.2090
 DEPOT_LAT,       DEPOT_LNG      = 28.6410, 77.2190
 
 app = Flask(__name__)
+
+# Initialize Rate Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://"
+)
+
+# "?"? Strict Configuration Validation "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?
+def _verify_required_secrets():
+    required_secrets = ['JWT_SECRET_KEY', 'ADMIN_JWT_SECRET_KEY', 'ADMIN_USERNAME', 'ADMIN_PASSWORD']
+    for secret in required_secrets:
+        if not os.environ.get(secret):
+            raise ValueError(f"CRITICAL: Production configuration {secret} is missing from the environment.")
+
+_verify_required_secrets()
+# "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    from flask import jsonify
+    return jsonify({"success": False, "error": "Too many login attempts. Please try again later."}), 429
+
+
+# CORS Configuration - Explicit Origin Validation
+_CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+@app.after_request
+def apply_cors(response):
+    origin = request.headers.get("Origin")
+    if origin and (origin in _CORS_ORIGINS or "*" in _CORS_ORIGINS):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Resident-Username, Authorization"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Lightweight health endpoint for deployment platform health checks."""
+    from flask import jsonify
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return "", 204
 
 # Load road network once at startup (cached for performance)
 print("="*50)
@@ -699,16 +753,32 @@ if _db_available():
     try:
         _existing = get_locations()
         if _existing:
-            # Reset operational state on load — every restart begins fresh (all gray)
-            for loc in _existing:
-                loc['has_garbage'] = False
-                loc['collected'] = False
-                loc['status'] = 'no_report' if loc.get('type') == 'house' else loc.get('status', 'EMPTY')
+            # PHASE 1 CHANGE 4: Retain the persisted reporting/garbage state from DB
             app_state['houses'] = _existing
             app_state['city_generated'] = True
-            # Persist the reset state back to DB so locations table stays in sync
-            reset_locations_status()
-            print(f"✅ Loaded {len(_existing)} locations from PostgreSQL — operational state reset for new session")
+            
+            # Sync garbage and no_garbage sets
+            app_state['garbage_houses'] = [h['id'] for h in _existing if h.get('has_garbage') or h.get('status') in ['reported', 'admin_marked', 'garbage_reported']]
+            for h in _existing:
+                # Normalize the local field for consistency if needed
+                if h['id'] in app_state['garbage_houses']:
+                    h['garbage'] = True
+                    h['has_garbage'] = True
+            
+            app_state['no_garbage_houses'] = [h['id'] for h in _existing if h['id'] not in app_state['garbage_houses']]
+            
+            # PHASE 1 CHANGE 5: Restore collected_houses
+            app_state['collected_houses'] = [h['id'] for h in _existing if h.get('collected')]
+            
+            # Load reporting window
+            from database import get_reporting_window
+            rw = get_reporting_window()
+            app_state['reporting_window_open'] = rw['is_active']
+            app_state['reporting_active'] = rw['is_active']
+            app_state['reporting_deadline'] = rw['ended_at'] if rw['is_active'] else None
+            app_state['reporting_ended'] = not rw['is_active']
+            
+            print(f"✅ Loaded {len(_existing)} locations from PostgreSQL — operational state preserved")
         else:
             print("ℹ️  No locations in DB — generating fresh city...")
             initialize_preloaded_houses()
@@ -736,6 +806,8 @@ def reporting_page():
 
 @app.route('/api/generate_city', methods=['POST'])
 def generate_city():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Generate city with houses positioned on actual roads"""
     global app_state
     
@@ -787,26 +859,52 @@ def generate_city():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
+
+# ── INTERNAL REPORTING HELPER ──
+def _set_reporting_window_internal(is_open):
+    global app_state
+    import time
+    now = int(time.time())
+    app_state['reporting_window_open'] = is_open
+    app_state['reporting_active'] = is_open
+    app_state['reporting_ended'] = not is_open
+    if is_open:
+        app_state['reporting_deadline'] = now + 120
+        
+    if _db_available():
+        set_setting('reporting_window_open', 'true' if is_open else 'false')
+        from database import set_reporting_window
+        set_reporting_window(is_open, started_at=now if is_open else None, ended_at=now+120 if is_open else None)
+
+def _get_reporting_window_internal():
+    global app_state
+    if _db_available():
+        from database import get_reporting_window
+        rw = get_reporting_window()
+        return {
+            'is_active': rw['is_active'],
+            'started_at': rw['started_at'],
+            'ended_at': rw['ended_at']
+        }
+    return {
+        'is_active': app_state.get('reporting_window_open', False),
+        'started_at': None,
+        'ended_at': app_state.get('reporting_deadline')
+    }
+
 @app.route('/api/start_reporting', methods=['POST'])
+
+
 def start_reporting():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Start garbage reporting window"""
     global app_state
-    
     print("=== START REPORTING ===")
-    
     if not app_state['city_generated']:
         return jsonify({'success': False, 'error': 'Generate city first'})
-    
-    app_state['reporting_active'] = True
-    app_state['reporting_ended'] = False
-    app_state['reporting_deadline'] = int(time.time()) + 120  # 2 minutes from now
-    app_state['reporting_window_open'] = True
-    
-    if _db_available():
-        set_setting('reporting_window_open', 'true')
-        
+    _set_reporting_window_internal(True)
     print("Started reporting window")
-    
     return jsonify({
         'success': True,
         'redirect_url': '/reporting'
@@ -862,20 +960,13 @@ def update_garbage_status():
 
 @app.route('/api/end_reporting', methods=['POST'])
 def end_reporting():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """End garbage reporting window"""
     global app_state
-    
     print("=== END REPORTING ===")
-    
-    app_state['reporting_active'] = False
-    app_state['reporting_ended'] = True
-    app_state['reporting_window_open'] = False
-    
-    if _db_available():
-        set_setting('reporting_window_open', 'false')
-        
+    _set_reporting_window_internal(False)
     print("Ended reporting window")
-    
     return jsonify({'success': True})
 
 
@@ -904,15 +995,15 @@ def garbage_window_status():
 @app.route('/api/admin/window-status', methods=['GET', 'POST'])
 @app.route('/api/api/admin/window-status', methods=['GET', 'POST'])
 def admin_window_status():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     global app_state
     if request.method == 'GET':
-        if _db_available():
-            val = get_setting('reporting_window_open', 'false')
-            is_open = val == 'true'
-        else:
-            is_open = app_state.get('reporting_window_open', False)
+        rw = _get_reporting_window_internal()
+        is_open = rw['is_active']
         return jsonify({ "success": True, "window_open": is_open, "is_open": is_open })
-        
     elif request.method == 'POST':
         data = request.get_json() or {}
         open_val = data.get('open')
@@ -920,28 +1011,17 @@ def admin_window_status():
             open_val = data.get('is_open', False)
         if isinstance(open_val, str):
             open_val = open_val.lower() == 'true'
-            
-        app_state['reporting_window_open'] = open_val
-        if open_val:
-            app_state['reporting_active'] = True
-            app_state['reporting_ended'] = False
-            app_state['reporting_deadline'] = int(time.time()) + 120
-        else:
-            app_state['reporting_active'] = False
-            app_state['reporting_ended'] = True
-            app_state['reporting_deadline'] = None
-            
-        new_val = 'true' if open_val else 'false'
-        if _db_available():
-            set_setting('reporting_window_open', new_val)
-            
-        print(f"🔄 reporting_window_open toggled via /api/admin/window-status to: {new_val}")
-        return jsonify({ "success": True, "window_open": open_val, "is_open": open_val })
+        _set_reporting_window_internal(open_val)
+        return jsonify({ "success": True, "window_open": open_val })
 
 
 @app.route('/api/admin/toggle_window', methods=['POST'])
 @app.route('/api/api/admin/toggle_window', methods=['POST'])
 def toggle_window():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     global app_state
     data = request.get_json() or {}
     open_val = data.get('open')
@@ -949,23 +1029,9 @@ def toggle_window():
         open_val = data.get('is_open', False)
     if isinstance(open_val, str):
         open_val = open_val.lower() == 'true'
-    
-    app_state['reporting_window_open'] = open_val
-    if open_val:
-        app_state['reporting_active'] = True
-        app_state['reporting_ended'] = False
-        app_state['reporting_deadline'] = int(time.time()) + 120
-    else:
-        app_state['reporting_active'] = False
-        app_state['reporting_ended'] = True
-        app_state['reporting_deadline'] = None
-        
-    new_val = 'true' if open_val else 'false'
-    if _db_available():
-        set_setting('reporting_window_open', new_val)
-        
-    print(f"🔄 reporting_window_open toggled to: {new_val}")
-    return jsonify({ "success": True, "window_open": open_val, "is_open": open_val })
+    _set_reporting_window_internal(open_val)
+    return jsonify({ "success": True, "window_open": open_val })
+
 
 @app.route('/api/auto_select_garbage', methods=['POST'])
 def auto_select_garbage():
@@ -1004,6 +1070,8 @@ def auto_select_garbage():
 
 @app.route('/api/optimize_route', methods=['POST'])
 def optimize_route():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Optimize garbage collection route using multi-truck clustering and REAL ROAD NETWORKS"""
     global app_state
     
@@ -1087,6 +1155,13 @@ def optimize_route():
         route_result = optimize_single_truck_route(cluster_houses, truck_id, i)
         
         if route_result['success']:
+            if _db_available():
+                from database import save_route
+                r_id = save_route(truck_id, route_result['total_distance_km'], 
+                                  120, 
+                                  route_result.get('route', []), 
+                                  route_result.get('route_coordinates', []))
+                route_result['route_id'] = r_id
             multi_truck_routes.append(route_result)
             total_distance += route_result['total_distance_km']
             total_road_points += route_result.get('total_road_points', 0)
@@ -1126,6 +1201,7 @@ def optimize_route():
             cluster_houses = sorted(cluster_houses, key=lambda h: ordered_ids.index(h['id']) if h['id'] in ordered_ids else 999)
         
         formatted_routes.append({
+            "route_id": r.get("route_id"),
             "truck_id": r.get("truck_id", f"T{i+1}"),
             "assigned_houses": cluster_houses,  # 🔥 KEY: Add houses from cluster allocation
             "route_coordinates": r.get("route_coordinates", [])  # 🔥 KEY: Use correct field name
@@ -1513,6 +1589,8 @@ def optimize_route_fallback():
 
 @app.route('/api/spawn_truck', methods=['POST'])
 def spawn_truck():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Spawn multiple trucks and start automatic movement along their respective road paths"""
     global app_state, movement_threads
     
@@ -1571,7 +1649,7 @@ def spawn_truck():
         stop_movement_workers()
         movement_stop_event.clear()
         
-        # ── Pre-compute _path_index for T1 houses (same logic as JS findClosestPathIndex) ──
+        # ── Pre-compute _path_index for all houses (same logic as JS findClosestPathIndex) ──
         def _find_closest_path_index(lat, lng, route_coords):
             min_d, idx = float('inf'), 0
             for i, p in enumerate(route_coords):
@@ -1580,16 +1658,21 @@ def spawn_truck():
                     min_d, idx = d, i
             return idx
 
+        for r_data in app_state['multi_truck_routes']:
+            t_id = r_data['truck_id']
+            r_fmt = next((r for r in optimized_routes if r['truck_id'] == t_id), None)
+            if r_data and r_fmt:
+                coords = r_data.get('route_coordinates', [])
+                houses = r_fmt.get('assigned_houses', [])
+                if len(coords) > 0 and houses:
+                    for h in houses:
+                        h['_path_index'] = _find_closest_path_index(h['lat'], h['lng'], coords)
+
         t1_route_data = next((r for r in app_state['multi_truck_routes'] if r['truck_id'] == 'T1'), None)
         t1_formatted   = next((r for r in optimized_routes if r['truck_id'] == 'T1'), None)
         if t1_route_data and t1_formatted:
             coords = t1_route_data.get('route_coordinates', [])
             houses = t1_formatted.get('assigned_houses', [])
-            
-            total_points = len(coords)
-            if total_points > 0 and houses:
-                for h in houses:
-                    h['_path_index'] = _find_closest_path_index(h['lat'], h['lng'], coords)
             # Start position = first road coordinate of the route (route always begins at depot/processing)
             start_lat = coords[0][0] if coords else processing_center['lat']
             start_lng = coords[0][1] if coords else processing_center['lng']
@@ -1702,11 +1785,60 @@ def spawn_truck():
                             app_state['truck_progress'][truck_id] = progress
                             if current_index % 50 == 0:
                                 print(f"🚛 {truck_id} at road point {current_index}/{truck_pos['total_road_points']} ({progress}%)")
+                            
+                            # PHASE 1 CHANGE 5: Autonomous collection logic
+                            # Find houses assigned to this truck
+                            t_fmt = next((r for r in optimized_routes if r['truck_id'] == truck_id), None)
+                            if t_fmt:
+                                for h in t_fmt.get('assigned_houses', []):
+                                    # Collect the house if we reached its path index
+                                    if current_index >= h.get('_path_index', 999999) and h['id'] not in app_state.get('collected_houses', []):
+                                        house_id = h['id']
+                                        
+                                        # Update in-memory state
+                                        for app_house in app_state.get('houses', []):
+                                            if app_house['id'] == house_id:
+                                                app_house['collected'] = True
+                                                app_house['collected_by'] = truck_id
+                                                break
+                                                
+                                        if house_id not in app_state.get('collected_houses', []):
+                                            app_state.setdefault('collected_houses', []).append(house_id)
+                                            
+                                        # Avoid duplicate entries in collection_history
+                                        already = any(r['location_id'] == house_id for r in app_state.setdefault('collection_history', []))
+                                        if not already:
+                                            house_obj = next((ah for ah in app_state.get('houses', []) if ah['id'] == house_id), {})
+                                            app_state['collection_history'].append({
+                                                'location_id': house_id, 'truck_id': truck_id,
+                                                'type': house_obj.get('type', 'house'),
+                                                'lat': house_obj.get('lat', h['lat']), 'lng': house_obj.get('lng', h['lng']),
+                                                'collected_at': int(time.time())
+                                            })
+                                            
+                                            if _db_available():
+                                                save_collection_event(house_id, truck_id, house_obj.get('type', 'house'), house_obj.get('lat', h['lat']), house_obj.get('lng', h['lng']))
+                                                update_location(house_id, collected=True, has_garbage=False, status='collected')
+                                                
+                                                from database import update_route_execution
+                                                if t_fmt.get('route_id'):
+                                                    try:
+                                                        h_idx = t_fmt['assigned_houses'].index(h)
+                                                        next_id = t_fmt['assigned_houses'][h_idx+1]['id'] if h_idx + 1 < len(t_fmt['assigned_houses']) else 'processing'
+                                                        update_route_execution(t_fmt['route_id'], current_stop_index=h_idx+1, current_stop_id=next_id)
+                                                    except ValueError:
+                                                        pass
+                                        print(f"✅ AUTONOMOUS COLLECTION: {truck_id} collected {house_id}")
                     else:
                         truck_state['completed'] = True
                         if 'truck_progress' not in app_state:
                             app_state['truck_progress'] = {}
                         app_state['truck_progress'][truck_id] = 100
+                        if _db_available():
+                            from database import complete_route_execution
+                            t_fmt = next((r for r in optimized_routes if r['truck_id'] == truck_id), None)
+                            if t_fmt and t_fmt.get('route_id'):
+                                complete_route_execution(t_fmt['route_id'])
                         print(f"✅ {truck_id} completed route! (100%)")
 
                 autonomous_done = all(
@@ -1881,14 +2013,17 @@ def get_simulation_status():
         print(f"Sample house: {app_state['houses'][0]}")
     
     # Check if reporting deadline has passed
-    if app_state.get('reporting_active', False) and app_state.get('reporting_deadline', 0):
-        if int(time.time()) >= app_state['reporting_deadline']:
+    rw = _get_reporting_window_internal()
+    is_active = rw.get('is_active', False)
+    deadline = rw.get('ended_at')
+    
+    if is_active and deadline:
+        if int(time.time()) >= deadline:
             print("Deadline expired - ending reporting")
-            app_state['reporting_active'] = False
-            app_state['reporting_ended'] = True
+            _set_reporting_window_internal(False)
+            is_active = False
     
     # Prepare response with multi-truck data
-    deadline = app_state.get('reporting_deadline')
     response_data = {
         'success': True,
         'simulation': {
@@ -1897,8 +2032,8 @@ def get_simulation_status():
             'no_garbage_houses': app_state.get('no_garbage_houses', []),
             'collected_houses': app_state.get('collected_houses', []),
             'city_generated': app_state.get('city_generated', False),
-            'reporting_active': app_state.get('reporting_active', False),
-            'reporting_ended': app_state.get('reporting_ended', False),
+            'reporting_active': is_active,
+            'reporting_ended': not is_active,
             'route_optimized': app_state.get('route_optimized', False),
             'truck_spawned': app_state.get('truck_spawned', False),
             # Multi-truck support
@@ -1953,6 +2088,19 @@ def get_simulation_status():
     # 🔥 FIXED: truck_override already included above
     return jsonify(response_data)
 
+# PHASE 1 CHANGE 4: Add simple reporting_window endpoint
+@app.route('/api/reporting_window', methods=['GET'])
+def get_reporting_window_api():
+    rw = _get_reporting_window_internal()
+    return jsonify({
+        'success': True,
+        'is_active': rw['is_active'],
+        'started_at': rw['started_at'],
+        'ended_at': rw['ended_at'],
+        'updated_at': None
+    })
+
+
 @app.route('/api/reporting_status', methods=['GET'])
 def reporting_status():
     """Get current reporting window status and time remaining"""
@@ -1984,6 +2132,8 @@ def reporting_status():
 
 @app.route('/api/reset_simulation', methods=['POST'])
 def reset_simulation():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Reset simulation with multi-truck support - keep houses/bins, clear all states"""
     global app_state, G, ROAD_NETWORK_LOADED, optimized_routes, truck_override
     
@@ -2008,8 +2158,10 @@ def reset_simulation():
             if _db_available():
                 reset_locations_status()
                 clear_waste_reports()
-                # clear_collection_history_db()
+                clear_collection_history_db()
                 set_setting('reporting_window_open', 'false')  # Close reporting window
+                from database import set_reporting_window
+                set_reporting_window(False)
             print(f"Reset {len(app_state['houses'])} locations to initial state")
         else:
             # If no houses exist, regenerate them
@@ -2076,6 +2228,8 @@ def reset_simulation():
 
 @app.route('/api/reset_everything', methods=['POST'])
 def reset_everything():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Reset simulation AND delete all collection history from PostgreSQL & memory"""
     global app_state
     try:
@@ -2406,7 +2560,58 @@ def report_garbage():
 
 # ── Resident App APIs ─────────────────────────────────────────────────────────
 
+
+def _require_admin():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Admin authentication required. Missing Bearer token.'}), 401
+    
+    token = auth_header.split(' ')[1]
+    secret = os.environ.get("ADMIN_JWT_SECRET_KEY")
+    if not secret:
+        return jsonify({'success': False, 'error': 'Server misconfiguration: missing Admin JWT secret'}), 500
+        
+    try:
+        decoded = jwt.decode(token, secret, algorithms=["HS256"])
+        if decoded.get('role') != 'admin':
+            return jsonify({'success': False, 'error': 'Forbidden: Insufficient privileges.'}), 403
+        return None
+    except jwt.ExpiredSignatureError:
+        return jsonify({'success': False, 'error': 'Admin token expired'}), 401
+    except (jwt.InvalidTokenError, ValueError) as e:
+        return jsonify({'success': False, 'error': 'Invalid Admin token'}), 401
+
+@app.route('/api/admin/login', methods=['POST'])
+@limiter.limit('5 per minute')
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get('username')
+    password = data.get('password')
+    
+    env_user = os.environ.get('ADMIN_USERNAME')
+    env_pass = os.environ.get('ADMIN_PASSWORD')
+    
+    if not env_user or not env_pass:
+        return jsonify({'success': False, 'error': 'Admin credentials not configured on server'}), 500
+        
+    if username == env_user and password == env_pass:
+        secret = os.environ.get('ADMIN_JWT_SECRET_KEY')
+        if not secret:
+            return jsonify({'success': False, 'error': 'Server misconfiguration: missing Admin JWT secret'}), 500
+            
+        token = jwt.encode({
+            'sub': 'admin',
+            'role': 'admin',
+            'iat': datetime.datetime.utcnow(),
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }, secret, algorithm="HS256")
+        
+        return jsonify({'success': True, 'admin_access_token': token})
+        
+    return jsonify({'success': False, 'error': 'Invalid admin credentials'}), 401
+
 @app.route('/api/resident/login', methods=['POST'])
+@limiter.limit('5 per minute')
 def resident_login():
     """Authenticate resident credentials"""
     global app_state
@@ -2424,6 +2629,15 @@ def resident_login():
     if _db_available():
         res = authenticate_resident_db(normalized_username, password)
         if res:
+            secret = os.environ.get("JWT_SECRET_KEY")
+            if secret:
+                token = jwt.encode({
+                    'sub': normalized_username,
+                    'house_id': res['house_id'],
+                    'iat': datetime.datetime.utcnow(),
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+                }, secret, algorithm="HS256")
+                res['access_token'] = token
             return jsonify(res)
             
     # 2. In-memory Fallback (when DB is unavailable)
@@ -2445,15 +2659,24 @@ def resident_login():
                         ward = "Zone B"
                     elif num >= 31:
                         ward = "Zone C"
-                    return jsonify({
+                    res = {
                         'success': True,
                         'house_id': normalized_username,
                         'username': normalized_username,
-                        'address': f"Demo Household {normalized_username}",
                         'ward': ward,
                         'lat': lat,
                         'lng': lng
-                    })
+                    }
+                    secret = os.environ.get("JWT_SECRET_KEY")
+                    if secret:
+                        token = jwt.encode({
+                            'sub': normalized_username,
+                            'house_id': normalized_username,
+                            'iat': datetime.datetime.utcnow(),
+                            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+                        }, secret, algorithm="HS256")
+                        res['access_token'] = token
+                    return jsonify(res)
         except ValueError:
             pass
             
@@ -2465,22 +2688,8 @@ def resident_report_garbage():
     """Submit waste report for a resident. Resolves house ownership from authentication record."""
     global app_state
     
-    username = request.headers.get('X-Resident-Username')
-    if not username:
-        return jsonify({'success': False, 'error': 'Authentication required. Please set X-Resident-Username header.'}), 401
-        
-    normalized_username = username.strip().upper()
-    
-    # 1. Resolve house_id owned by the resident from their authentication record
-    resolved_house_id = None
-    if _db_available():
-        resolved_house_id = get_house_by_username_db(normalized_username)
-    else:
-        # In-memory fallback: username matches house_id
-        resolved_house_id = normalized_username
-        
-    if not resolved_house_id:
-        return jsonify({'success': False, 'error': f'No house location registered for resident {normalized_username}'}), 404
+    resolved_house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
         
     data = request.get_json() or {}
     body_house_id = data.get('house_id')
@@ -2555,6 +2764,12 @@ def resident_profile(house_id):
     
     normalized_house_id = house_id.strip().upper()
     
+    auth_house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
+    
+    if auth_house_id != normalized_house_id:
+        return jsonify({'success': False, 'error': 'Forbidden: You do not have permission to view this profile.'}), 403
+        
     if _db_available():
         profile = get_resident_profile_db(normalized_house_id)
         if profile:
@@ -2587,6 +2802,14 @@ def resident_reports(house_id):
     
     normalized_house_id = house_id.strip().upper()
     
+    # 1. Resolve authenticating resident identity via JWT
+    resolved_house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
+        
+    # 2. Compare authenticated identity with requested identity
+    if resolved_house_id != normalized_house_id:
+        return jsonify({'success': False, 'error': 'Forbidden: You do not have permission to view this history.'}), 403
+        
     if _db_available():
         reports = get_resident_reports_db(normalized_house_id)
         return jsonify({
@@ -2612,6 +2835,72 @@ def resident_reports(house_id):
         'reports': reports
     })
 
+
+# --- IN-APP NOTIFICATIONS ENDPOINTS ---
+
+def _resolve_resident_identity():
+    # Enforce JWT Authorization
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None, jsonify({'success': False, 'error': 'Authentication required. Missing Bearer token.'}), 401
+    
+    token = auth_header.split(' ')[1]
+    secret = os.environ.get("JWT_SECRET_KEY")
+    if not secret:
+        return None, jsonify({'success': False, 'error': 'Server misconfiguration: missing JWT secret'}), 500
+        
+    try:
+        decoded = jwt.decode(token, secret, algorithms=["HS256"])
+        house_id = decoded.get('house_id')
+        if not house_id:
+            raise ValueError("Missing house_id claim")
+            
+        # Optional validation: Ensure X-Resident-Username doesn't conflict with token (defense-in-depth)
+        legacy_header = request.headers.get('X-Resident-Username')
+        if legacy_header and legacy_header.strip().upper() != house_id:
+            return None, jsonify({'success': False, 'error': 'Header identity mismatch with token'}), 403
+            
+        return house_id, None, None
+    except jwt.ExpiredSignatureError:
+        return None, jsonify({'success': False, 'error': 'Token expired'}), 401
+    except (jwt.InvalidTokenError, ValueError) as e:
+        return None, jsonify({'success': False, 'error': 'Invalid token'}), 401
+
+@app.route('/api/resident/notifications', methods=['GET'])
+def get_resident_notifications():
+    from database import get_resident_notifications_db
+    house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
+    
+    notifications = get_resident_notifications_db(house_id) if _db_available() else []
+    return jsonify({
+        'success': True,
+        'notifications': notifications
+    })
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['PUT'])
+def mark_notification_read(notification_id):
+    from database import mark_notification_read_db
+    house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
+    
+    if _db_available():
+        success = mark_notification_read_db(notification_id, house_id)
+        if not success:
+            return jsonify({'success': False, 'error': 'Notification not found or access denied.'}), 403
+            
+    return jsonify({'success': True})
+
+@app.route('/api/notifications/read-all', methods=['PUT'])
+def mark_all_notifications_read():
+    from database import mark_all_notifications_read_db
+    house_id, err_resp, err_code = _resolve_resident_identity()
+    if err_resp: return err_resp, err_code
+    
+    if _db_available():
+        mark_all_notifications_read_db(house_id)
+        
+    return jsonify({'success': True})
 
 @app.route('/api/resident/demo_credentials', methods=['GET'])
 def resident_demo_credentials():
@@ -2640,16 +2929,51 @@ def user_app_page():
     """Serve user app page"""
     return render_template('user_app.html')
 
+# --- PHASE 1 CHANGE 1 & 3: RETRIEVE FROM POSTGRESQL ---
+def load_persisted_routes_to_memory():
+    """Reads routes from PostgreSQL and populates app_state and optimized_routes."""
+    global optimized_routes, app_state
+    try:
+        from database import get_active_routes
+        db_routes = get_active_routes()
+        if db_routes:
+            formatted_routes = []
+            for r in db_routes:
+                assigned_houses = []
+                for stop in r.get('stops', []):
+                    if stop.get('stop_type') == 'garbage':
+                        assigned_houses.append({
+                            'id': stop['location_id'],
+                            'lat': stop['latitude'],
+                            'lng': stop['longitude']
+                        })
+                formatted_routes.append({
+                    "route_id": r['id'],
+                    "truck_id": r['truck_id'],
+                    "assigned_houses": assigned_houses,
+                    "route_coordinates": r.get('route_coordinates', [])
+                })
+            optimized_routes = formatted_routes
+            app_state['multi_truck_routes'] = formatted_routes
+            return True
+        return False
+    except Exception as e:
+        print(f"❌ Failed to retrieve routes from DB: {e}")
+        return False
+
 # 🔥 NEW: Driver App APIs (COMPLETELY ISOLATED)
 @app.route('/api/get_routes', methods=['GET'])
 def get_routes():
     """Get optimized routes for driver app"""
     global optimized_routes
     
-    # 🔥 CRITICAL FIX: Return empty routes if system is reset
-    if not app_state.get('multi_truck_routes') or len(app_state.get('multi_truck_routes', [])) == 0:
-        print("🔄 No routes available - system reset or not optimized")
-        return jsonify({"routes": []})
+    # --- PHASE 1 CHANGE 1 & 3: RETRIEVE FROM POSTGRESQL ---
+    if load_persisted_routes_to_memory():
+        return jsonify({
+            'success': True,
+            'routes': optimized_routes
+        })
+    # --------------------------------------------------
     
     # 🔥 FIX: Load routes from app_state if optimized_routes is empty
     if not optimized_routes and app_state.get('multi_truck_routes'):
@@ -2724,13 +3048,31 @@ def collect_house():
     
     data = request.get_json()
     house_id = data['house_id']
+    truck_id = data.get('truck_id', 'T1')
     
     for house in app_state.get('houses', []):
         if house['id'] == house_id:
             house['collected'] = True
+            house['has_garbage'] = False
+            house['status'] = 'collected'
             if house_id not in app_state.get('collected_houses', []):
                 app_state['collected_houses'].append(house_id)
             print(f"✅ DRIVER COLLECTED: {house_id}")
+            
+            # PHASE 1 CHANGE 5: Save to collection history
+            if 'collection_history' not in app_state:
+                app_state['collection_history'] = []
+            already = any(r['location_id'] == house_id for r in app_state['collection_history'])
+            if not already:
+                app_state['collection_history'].append({
+                    'location_id': house_id, 'truck_id': truck_id,
+                    'type': house.get('type', 'house'),
+                    'lat': house.get('lat'), 'lng': house.get('lng'),
+                    'collected_at': int(time.time())
+                })
+                if _db_available():
+                    save_collection_event(house_id, truck_id, house.get('type', 'house'), house.get('lat'), house.get('lng'))
+                    update_location(house_id, collected=True, has_garbage=False, status='collected')
             break
     
     return jsonify({'success': True})
@@ -2960,6 +3302,8 @@ def get_collection_history():
 
 @app.route('/api/admin/executive_analytics', methods=['GET'])
 def executive_analytics():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Historical analytics derived entirely from PostgreSQL"""
     global app_state
     
@@ -3038,40 +3382,125 @@ def driver_page():
 
 
 
-# ── T1 backend-control endpoints ────────────────────────────────────────────
+
+
+# ── T1 & Generic backend-control endpoints ─────────────────────────────────
+def get_truck_state(truck_id):
+    """Retrieve generic state of a truck."""
+    global app_state, optimized_routes
+    
+    # 1. Check PostgreSQL Truck Registry
+    db_truck = None
+    if _db_available():
+        from database import get_truck
+        db_truck = get_truck(truck_id)
+        if not db_truck:
+            return {'error': 'Unknown truck'}
+    else:
+        # Fallback if DB is down
+        if truck_id not in ['T1', 'T2', 'T3', 'T4', 'T5']:
+            return {'error': 'Unknown truck'}
+        db_truck = {'truck_id': truck_id, 'mode': 'human' if truck_id == 'T1' else 'autonomous', 'status': 'available'}
+        
+    # Check if simulation is running
+    if not app_state.get('truck_spawned'):
+        return None
+        
+    if truck_id == 'T1':
+        t1 = app_state.get('t1_state')
+        if not t1:
+            return None
+        t1_fmt = next((r for r in optimized_routes if r['truck_id'] == 'T1'), None)
+        houses  = t1_fmt.get('assigned_houses', []) if t1_fmt else []
+        total   = len(houses)
+        hi      = t1.get('current_house_index', 0)
+        guidance = get_t1_backend_guidance()
+        return {
+            'truck_id': 'T1',
+            'mode': db_truck.get('mode', 'human'),
+            'status': db_truck.get('status', 'active'),
+            'ready':               True,
+            'lat':                 t1.get('lat'),
+            'lng':                 t1.get('lng'),
+            'path_index':          t1.get('path_index', 0),
+            'paused':              t1.get('paused', False),
+            'moving':              t1.get('moving', False),
+            'completed':           t1.get('completed', False),
+            'current_stop_id':     t1.get('current_stop_id'),
+            'current_house_index': hi,
+            'total_stops':         total,
+            'done_stops':          hi,
+            'next_stop_id':        houses[hi + 1]['id'] if hi + 1 < total else None,
+            'eta':                 guidance,
+            'eta_text':            guidance.get('eta_text') if guidance else None,
+            'distance_m':          guidance.get('distance_m') if guidance else None,
+        }
+    else:
+        # Autonomous trucks
+        trucks = app_state.get('truck_states', {})
+        t_state = trucks.get(truck_id)
+        positions = app_state.get('truck_positions', {})
+        t_pos = positions.get(truck_id)
+        if not t_state or not t_pos:
+            return None
+        t_fmt = next((r for r in optimized_routes if r['truck_id'] == truck_id), None)
+        houses  = t_fmt.get('assigned_houses', []) if t_fmt else []
+        total   = len(houses)
+        
+        # Estimate done_stops based on path index
+        done_stops = sum(1 for h in houses if h.get('_path_index', 999999) <= t_pos.get('current_road_index', 0))
+        
+        return {
+            'truck_id': truck_id,
+            'mode': db_truck.get('mode', 'autonomous'),
+            'status': db_truck.get('status', 'active'),
+            'ready': True,
+            'lat': t_pos.get('lat'),
+            'lng': t_pos.get('lng'),
+            'path_index': t_pos.get('current_road_index', 0),
+            'paused': False, # Always moving
+            'moving': not t_state.get('completed', False),
+            'completed': t_state.get('completed', False),
+            'current_stop_id': None,
+            'current_house_index': done_stops,
+            'total_stops': total,
+            'done_stops': done_stops,
+            'next_stop_id': houses[done_stops]['id'] if done_stops < total else None,
+        }
+
+@app.route('/api/truck_state/<truck_id>', methods=['GET'])
+def truck_state_generic(truck_id):
+    """Generic truck state endpoint."""
+    state = get_truck_state(truck_id)
+    if state and 'error' in state:
+        return jsonify({'success': False, 'message': state['error']}), 404
+    if not state:
+        return jsonify({'ready': False})
+    return jsonify(state)
+
 @app.route('/api/t1_state', methods=['GET'])
 def t1_state():
     """Driver app polls this every 300ms to get current T1 position and stop state."""
-    t1 = app_state.get('t1_state')
-    if not t1:
+    state = get_truck_state('T1')
+    if not state:
         return jsonify({'ready': False})
-    t1_fmt = next((r for r in optimized_routes if r['truck_id'] == 'T1'), None)
-    houses  = t1_fmt.get('assigned_houses', []) if t1_fmt else []
-    total   = len(houses)
-    hi      = t1['current_house_index']
-    guidance = get_t1_backend_guidance()
-    return jsonify({
-        'ready':               True,
-        'lat':                 t1['lat'],
-        'lng':                 t1['lng'],
-        'path_index':          t1['path_index'],
-        'paused':              t1['paused'],
-        'moving':              t1['moving'],
-        'completed':           t1['completed'],
-        'current_stop_id':     t1['current_stop_id'],
-        'current_house_index': hi,
-        'total_stops':         total,
-        'done_stops':          hi,
-        'next_stop_id':        houses[hi + 1]['id'] if hi + 1 < total else None,
-        'eta':                 guidance,
-        'eta_text':            guidance.get('eta_text') if guidance else None,
-        'distance_m':          guidance.get('distance_m') if guidance else None,
-    })
+    return jsonify(state)
 
 
 @app.route('/api/start_t1_route', methods=['POST'])
 def start_t1_route():
     """Driver presses Start Route — sets T1 moving flag so backend thread drives it."""
+    # --- PHASE 1 CHANGE 3: REBOOT RESILIENCE ---
+    if not app_state.get('truck_spawned'):
+        print("🔄 Server was rebooted. Re-hydrating route from PostgreSQL before starting T1...")
+        if load_persisted_routes_to_memory():
+            # Internal contextless call to spawn the thread silently
+            with app.test_request_context():
+                spawn_truck()
+        else:
+            return jsonify({'success': False, 'error': 'No persisted routes found in DB'}), 400
+    # ---------------------------------------------
+    
     t1 = app_state.get('t1_state')
     if not t1:
         return jsonify({'success': False, 'error': 'T1 not initialised — deploy fleet first'}), 400
@@ -3087,6 +3516,11 @@ def start_t1_route():
     t1['current_house_index'] = 0
     t1['current_stop_id']     = None
     print(f"🚛 T1 route started — origin ({t1['lat']:.5f},{t1['lng']:.5f})")
+    
+    if _db_available() and t1_rd and t1_rd.get('route_id'):
+        from database import create_route_execution
+        create_route_execution(t1_rd['route_id'], 'T1', 'depot')
+        
     return jsonify({'success': True})
 
 
@@ -3168,6 +3602,8 @@ def skip_stop():
 
 @app.route('/api/admin/trigger_monthly_summaries', methods=['POST'])
 def trigger_monthly_summaries():
+    admin_err = _require_admin()
+    if admin_err: return admin_err
     """Trigger monthly summary WhatsApp notifications for all registered houses/users"""
     global app_state
     
@@ -3257,6 +3693,26 @@ def trigger_monthly_summaries():
 
 
 if __name__ == '__main__':
+    # Configuration
+    app_env = os.environ.get('APP_ENV', 'production').lower()
+    host = os.environ.get('HOST', '0.0.0.0')
+    try:
+        port = int(os.environ.get('PORT', 5000))
+    except ValueError:
+        port = 5000
+        
+    is_development = (app_env == 'development')
+    
+    # Explicitly force debug to False in production
+    debug_mode = is_development
+
     print("=== STARTING SMART WASTE DEMO ===")
-    print("Open http://localhost:5000 in your browser")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"Environment: {app_env}")
+    print(f"Debug Mode:  {debug_mode}")
+    print(f"Server URL:  http://{host}:{port}")
+    
+    app.run(host=host, port=port, debug=debug_mode)
+
+
+
+

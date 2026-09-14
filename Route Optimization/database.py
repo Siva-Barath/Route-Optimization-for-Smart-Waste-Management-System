@@ -28,12 +28,18 @@ from psycopg2.extras import RealDictCursor
 logger = logging.getLogger(__name__)
 
 # ── Connection config ─────────────────────────────────────────────────────────
+def _require_env(key: str, default: str = None, allow_default: bool = False) -> str:
+    val = os.environ.get(key)
+    if not val and not allow_default:
+        raise ValueError(f"Required database configuration {key} is missing")
+    return val or default
+
 DB_CONFIG = {
-    "host":     os.environ.get("DB_HOST",     "localhost"),
-    "port":     int(os.environ.get("DB_PORT", "5432")),
-    "dbname":   os.environ.get("DB_NAME",     "smart_waste_db"),
-    "user":     os.environ.get("DB_USER",     "postgres"),
-    "password": os.environ.get("DB_PASSWORD", "postgres"),
+    "host":     _require_env("DB_HOST", "localhost", allow_default=True),
+    "port":     int(_require_env("DB_PORT", "5432", allow_default=True)),
+    "dbname":   _require_env("DB_NAME"),
+    "user":     _require_env("DB_USER"),
+    "password": _require_env("DB_PASSWORD"),
     "connect_timeout": 5,
 }
 
@@ -68,6 +74,7 @@ def init_db() -> bool:
         _create_tables()
         _seed_facilities()
         _seed_resident_accounts()
+        _seed_trucks()
         DB_AVAILABLE = True
         logger.info("✅ DB layer ready (smart_waste_db)")
         return True
@@ -106,6 +113,15 @@ def _create_tables():
     statement uses IF NOT EXISTS so it is safe to run again.
     """
     ddl = """
+        CREATE TABLE IF NOT EXISTS trucks (
+        id SERIAL PRIMARY KEY,
+        truck_id VARCHAR(20) UNIQUE NOT NULL,
+        mode VARCHAR(20) NOT NULL,
+        status VARCHAR(20) DEFAULT 'available',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- locations: already created in pgAdmin, recreated safely
     CREATE TABLE IF NOT EXISTS locations (
         id            SERIAL PRIMARY KEY,
@@ -205,6 +221,17 @@ def _create_tables():
     CREATE INDEX IF NOT EXISTS ix_nl_location    ON notification_logs(location_id);
     CREATE INDEX IF NOT EXISTS ix_nl_event       ON notification_logs(event_type);
 
+    -- resident_notifications table (in-app notifications)
+    CREATE TABLE IF NOT EXISTS resident_notifications (
+        id          SERIAL PRIMARY KEY,
+        house_id    VARCHAR(20) NOT NULL,
+        type        VARCHAR(30) DEFAULT 'info',
+        message     TEXT NOT NULL,
+        is_read     BOOLEAN DEFAULT FALSE,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_rn_house ON resident_notifications(house_id);
+
     -- app_settings table
     CREATE TABLE IF NOT EXISTS app_settings (
         key   VARCHAR PRIMARY KEY,
@@ -212,6 +239,53 @@ def _create_tables():
     );
     INSERT INTO app_settings (key, value) VALUES ('reporting_window_open', 'false')
     ON CONFLICT (key) DO NOTHING;
+    
+    -- reporting_window table (Phase 1 Change 4)
+    CREATE TABLE IF NOT EXISTS reporting_window (
+        id SERIAL PRIMARY KEY,
+        is_active BOOLEAN DEFAULT FALSE,
+        started_at TIMESTAMPTZ,
+        ended_at TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    INSERT INTO reporting_window (id, is_active) VALUES (1, FALSE)
+    ON CONFLICT DO NOTHING;
+
+    -- routes
+    CREATE TABLE IF NOT EXISTS routes (
+        id                SERIAL PRIMARY KEY,
+        truck_id          VARCHAR(10) NOT NULL,
+        status            VARCHAR(20) DEFAULT 'active',
+        total_distance_km DOUBLE PRECISION,
+        estimated_time_min INTEGER,
+        route_coordinates JSON,
+        created_at        TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- route_stops
+    CREATE TABLE IF NOT EXISTS route_stops (
+        id            SERIAL PRIMARY KEY,
+        route_id      INTEGER REFERENCES routes(id) ON DELETE CASCADE,
+        stop_order    INTEGER NOT NULL,
+        location_id   VARCHAR(50) NOT NULL,
+        latitude      DOUBLE PRECISION,
+        longitude     DOUBLE PRECISION,
+        stop_type     VARCHAR(20) DEFAULT 'garbage',
+        status        VARCHAR(20) DEFAULT 'pending'
+    );
+
+    -- route_execution
+    CREATE TABLE IF NOT EXISTS route_execution (
+        id SERIAL PRIMARY KEY,
+        route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE UNIQUE,
+        truck_id VARCHAR(10) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        current_stop_index INTEGER DEFAULT 0,
+        current_stop_id VARCHAR(50),
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        completed_at TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
     """
 
     with get_connection() as conn:
@@ -221,6 +295,28 @@ def _create_tables():
             cur.execute("ALTER TABLE waste_reports ADD COLUMN IF NOT EXISTS report_source VARCHAR(20) DEFAULT 'ADMIN_PANEL';")
     logger.info("✅ All tables verified / created")
 
+
+
+def _seed_trucks():
+    try:
+        trucks_to_seed = [
+            ('T1', 'human'),
+            ('T2', 'autonomous'),
+            ('T3', 'autonomous'),
+            ('T4', 'autonomous'),
+            ('T5', 'autonomous')
+        ]
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                for t_id, mode in trucks_to_seed:
+                    cur.execute("""
+                        INSERT INTO trucks (truck_id, mode)
+                        VALUES (%s, %s)
+                        ON CONFLICT (truck_id) DO NOTHING;
+                    """, (t_id, mode))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to seed trucks: {e}")
 
 def _seed_facilities():
     """Insert default processing center and depot if facilities table is empty."""
@@ -854,7 +950,8 @@ def get_resident_profile_db(house_id: str) -> dict | None:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT ra.username, l.status, l.has_garbage
+                    SELECT ra.username, l.status, l.has_garbage,
+                           (SELECT COUNT(*) FROM collection_history ch WHERE ch.location_id = l.id) * 5 AS points
                     FROM resident_accounts ra
                     JOIN locations l ON ra.house_id = l.display_id
                     WHERE ra.house_id = %s
@@ -866,7 +963,8 @@ def get_resident_profile_db(house_id: str) -> dict | None:
                         "house_id": normalized_house_id,
                         "username": res["username"],
                         "status": res["status"],
-                        "has_garbage": res["has_garbage"]
+                        "has_garbage": res["has_garbage"],
+                        "points": res["points"]
                     }
         return None
     except Exception as e:
@@ -937,6 +1035,18 @@ def save_notification_log(location_id: str, phone: str, event_type: str,
                     INSERT INTO notification_logs (location_id, phone_number, event_type, message_body, twilio_sid, status)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (location_id, phone, event_type, body, twilio_sid, status))
+                
+                # Also create the persistent in-app notification for the resident UI
+                notif_type = 'info'
+                if 'reminder' in event_type.lower(): notif_type = 'reminder'
+                elif 'alert' in event_type.lower() or 'nearby' in event_type.lower(): notif_type = 'alert'
+                elif 'completed' in event_type.lower(): notif_type = 'announcement'
+                
+                cur.execute("""
+                    INSERT INTO resident_notifications (house_id, type, message)
+                    VALUES (%s, %s, %s)
+                """, (location_id, notif_type, body))
+                
         return True
     except Exception as e:
         logger.error(f"save_notification_log failed for {location_id}: {e}")
@@ -999,4 +1109,264 @@ def set_setting(key: str, value: str) -> bool:
     except Exception as e:
         logger.error(f"set_setting failed for {key} = {value}: {e}")
         return False
+
+# --- ROUTE PERSISTENCE FUNCTIONS ---
+
+import json
+
+def clear_active_routes():
+    if not DB_AVAILABLE: return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE route_execution SET status = 'cancelled' WHERE status IN ('pending', 'active');")
+            cur.execute("UPDATE routes SET status = 'completed' WHERE status = 'active';")
+
+def save_route(truck_id, total_distance_km, estimated_time_min, route_stops, route_coordinates=None):
+    if not DB_AVAILABLE: return
+    if route_coordinates is None:
+        route_coordinates = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO routes (truck_id, total_distance_km, estimated_time_min, route_coordinates) VALUES (%s, %s, %s, %s) RETURNING id;",
+                (truck_id, total_distance_km, estimated_time_min, json.dumps(route_coordinates))
+            )
+            route_id = cur.fetchone()[0]
+            
+            for i, stop in enumerate(route_stops):
+                cur.execute(
+                    "INSERT INTO route_stops (route_id, stop_order, location_id, latitude, longitude, stop_type) VALUES (%s, %s, %s, %s, %s, %s);",
+                    (route_id, i, str(stop.get('id', '')), stop['coords'][0], stop['coords'][1], stop.get('type', 'garbage'))
+                )
+            return route_id
+
+def get_active_routes():
+    if not DB_AVAILABLE: return []
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM routes WHERE status = 'active';")
+            routes = cur.fetchall()
+            
+            for route in routes:
+                cur.execute("SELECT * FROM route_stops WHERE route_id = %s ORDER BY stop_order;", (route['id'],))
+                route['stops'] = cur.fetchall()
+            return routes
+
+# --- PHASE 1 CHANGE 4: REPORTING WINDOW ---
+def get_reporting_window():
+    if not DB_AVAILABLE:
+        return {'is_active': False, 'started_at': None, 'ended_at': None}
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT is_active, EXTRACT(EPOCH FROM started_at) as started_at, EXTRACT(EPOCH FROM ended_at) as ended_at FROM reporting_window WHERE id = 1;")
+                row = cur.fetchone()
+                if row:
+                    return {
+                        'is_active': bool(row['is_active']),
+                        'started_at': int(row['started_at']) if row['started_at'] else None,
+                        'ended_at': int(row['ended_at']) if row['ended_at'] else None
+                    }
+    except Exception as e:
+        logger.error(f"get_reporting_window failed: {e}")
+    return {'is_active': False, 'started_at': None, 'ended_at': None}
+
+def set_reporting_window(is_active, started_at=None, ended_at=None):
+    if not DB_AVAILABLE:
+        return False
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Handle None values appropriately for timestamps
+                started_val = f"TO_TIMESTAMP({started_at})" if started_at else "NULL"
+                ended_val = f"TO_TIMESTAMP({ended_at})" if ended_at else "NULL"
+                
+                cur.execute(f"""
+                    UPDATE reporting_window 
+                    SET is_active = %s, 
+                        started_at = {started_val}, 
+                        ended_at = {ended_val}, 
+                        updated_at = NOW() 
+                    WHERE id = 1;
+                """, (is_active,))
+                return True
+    except Exception as e:
+        logger.error(f"set_reporting_window failed: {e}")
+        return False
+
+
+# ── Fleet / Truck Registry ───────────────────────────────────────────────────────────
+
+def get_trucks():
+    if not DB_AVAILABLE: return []
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT truck_id, mode, status FROM trucks ORDER BY truck_id;")
+                return cur.fetchall()
+    except Exception as e:
+        logger.error(f"get_trucks failed: {e}")
+        return []
+
+def get_truck(truck_id):
+    if not DB_AVAILABLE: return None
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT truck_id, mode, status FROM trucks WHERE truck_id = %s;", (truck_id,))
+                return cur.fetchone()
+    except Exception as e:
+        logger.error(f"get_truck failed: {e}")
+        return None
+
+def update_truck_status(truck_id, status):
+    if not DB_AVAILABLE: return False
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE trucks
+                    SET status = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE truck_id = %s;
+                """, (status, truck_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"update_truck_status failed: {e}")
+        return False
+
+
+# ── ROUTE EXECUTION HELPERS ──
+def get_route_execution(route_id):
+    if not DB_AVAILABLE: return None
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM route_execution WHERE route_id = %s", (route_id,))
+            return cur.fetchone()
+
+def create_route_execution(route_id, truck_id, current_stop_id):
+    if not DB_AVAILABLE: return
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO route_execution (route_id, truck_id, status, current_stop_index, current_stop_id, started_at, updated_at)
+                    VALUES (%s, %s, 'active', 0, %s, NOW(), NOW())
+                    ON CONFLICT (route_id) DO UPDATE SET 
+                        status = 'active', 
+                        current_stop_index = 0,
+                        current_stop_id = %s,
+                        started_at = NOW(),
+                        updated_at = NOW(),
+                        completed_at = NULL;
+                """, (route_id, truck_id, current_stop_id, current_stop_id))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error create_route_execution: {e}")
+
+def update_route_execution(route_id, status=None, current_stop_index=None, current_stop_id=None):
+    if not DB_AVAILABLE: return
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                updates = ["updated_at = NOW()"]
+                params = []
+                if status is not None:
+                    updates.append("status = %s")
+                    params.append(status)
+                if current_stop_index is not None:
+                    updates.append("current_stop_index = %s")
+                    params.append(current_stop_index)
+                if current_stop_id is not None:
+                    updates.append("current_stop_id = %s")
+                    params.append(current_stop_id)
+                params.append(route_id)
+                
+                cur.execute(f"UPDATE route_execution SET {', '.join(updates)} WHERE route_id = %s", params)
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error update_route_execution: {e}")
+
+def complete_route_execution(route_id):
+    if not DB_AVAILABLE: return
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE route_execution SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE route_id = %s", (route_id,))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error complete_route_execution: {e}")
+
+def get_active_route_execution(truck_id):
+    if not DB_AVAILABLE: return None
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM route_execution WHERE truck_id = %s AND status IN ('pending', 'active') ORDER BY started_at DESC LIMIT 1", (truck_id,))
+            return cur.fetchone()
+
+# --- In-App Notifications Helpers ---
+def get_resident_notifications_db(house_id: str) -> list:
+    if not DB_AVAILABLE: return []
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, type, message, is_read as read, created_at
+                    FROM resident_notifications
+                    WHERE house_id = %s
+                    ORDER BY created_at DESC
+                """, (house_id,))
+                rows = cur.fetchall()
+                for row in rows:
+                    if row['created_at']:
+                        row['created_at'] = row['created_at'].isoformat()
+                return rows
+    except Exception as e:
+        logger.error(f"Error getting resident notifications: {e}")
+        return []
+
+def mark_notification_read_db(notif_id: int, house_id: str) -> bool:
+    if not DB_AVAILABLE: return False
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE resident_notifications
+                    SET is_read = TRUE
+                    WHERE id = %s AND house_id = %s
+                """, (notif_id, house_id))
+                return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error marking notification read: {e}")
+        return False
+
+def mark_all_notifications_read_db(house_id: str) -> bool:
+    if not DB_AVAILABLE: return False
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE resident_notifications
+                    SET is_read = TRUE
+                    WHERE house_id = %s AND is_read = FALSE
+                """, (house_id,))
+                return True
+    except Exception as e:
+        logger.error(f"Error marking all notifications read: {e}")
+        return False
+
+def create_in_app_notification_db(house_id: str, n_type: str, message: str) -> bool:
+    if not DB_AVAILABLE: return False
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO resident_notifications (house_id, type, message)
+                    VALUES (%s, %s, %s)
+                """, (house_id, n_type, message))
+                return True
+    except Exception as e:
+        logger.error(f"Error creating in-app notification: {e}")
+        return False
+
 
