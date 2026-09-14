@@ -1624,10 +1624,11 @@ def spawn_truck():
         stop_movement_workers()
         movement_stop_event.clear()
         
-        # ── Pre-compute _path_index for all houses (same logic as JS findClosestPathIndex) ──
-        def _find_closest_path_index(lat, lng, route_coords):
-            min_d, idx = float('inf'), 0
-            for i, p in enumerate(route_coords):
+        # ── CRITICAL FIX: Progressive search to guarantee monotonic indices in TSP order
+        def _find_closest_path_index(lat, lng, route_coords, start_idx=0):
+            min_d, idx = float('inf'), start_idx
+            for i in range(start_idx, len(route_coords)):
+                p = route_coords[i]
                 d = (p[0] - lat) ** 2 + (p[1] - lng) ** 2
                 if d < min_d:
                     min_d, idx = d, i
@@ -1640,8 +1641,10 @@ def spawn_truck():
                 coords = r_data.get('route_coordinates', [])
                 houses = r_fmt.get('assigned_houses', [])
                 if len(coords) > 0 and houses:
+                    current_search_idx = 0
                     for h in houses:
-                        h['_path_index'] = _find_closest_path_index(h['lat'], h['lng'], coords)
+                        h['_path_index'] = _find_closest_path_index(h['lat'], h['lng'], coords, current_search_idx)
+                        current_search_idx = h['_path_index']
 
         t1_route_data = next((r for r in app_state['multi_truck_routes'] if r['truck_id'] == 'T1'), None)
         t1_formatted   = next((r for r in optimized_routes if r['truck_id'] == 'T1'), None)
