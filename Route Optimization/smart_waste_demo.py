@@ -1109,6 +1109,12 @@ def optimize_route():
     # Step 2: Calculate truck allocation
     truck_allocation = calculate_truck_allocation(clusters)
     
+    # dY" CRITICAL FIX: Clear old active routes before saving new ones to prevent stale route overlap
+    if _db_available():
+        from database import clear_active_routes
+        clear_active_routes()
+        print("Cleared stale active routes from database")
+        
     # Step 3: Generate routes for each truck
     multi_truck_routes = []
     total_distance = 0
