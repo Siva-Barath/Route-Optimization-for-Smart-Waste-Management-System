@@ -365,45 +365,14 @@ def handle_options(path):
 
 # Load road network once at startup (cached for performance)
 print("="*50)
-print("Loading Delhi road network from OpenStreetMap...")
-print("This may take 60-120 seconds on first run...")
+print("Loading Delhi road network from offline GraphML file...")
+print("This completely bypasses Overpass API for Render deployment safety.")
 try:
-    # Load Delhi road network with simplification
-    G = ox.graph_from_place("Delhi, India", network_type='drive', simplify=True)
+    import os
+    graph_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'delhi_network.graphml')
+    G = ox.load_graphml(graph_path)
     
-    print(f"Initial graph: {len(G.nodes)} nodes, {len(G.edges)} edges")
-    
-    # Filter - keep only main public roads
-    print("Filtering roads...")
-    edges_to_remove = []
-    
-    allowed_road_types = [
-        'motorway', 'motorway_link',
-        'trunk', 'trunk_link',
-        'primary', 'primary_link',
-        'secondary', 'secondary_link',
-        'tertiary', 'tertiary_link',
-        'residential',
-        'unclassified'
-    ]
-    
-    for u, v, k, data in G.edges(keys=True, data=True):
-        highway_type = data.get('highway', '')
-        
-        if isinstance(highway_type, list):
-            highway_type = highway_type[0] if highway_type else ''
-        
-        if highway_type not in allowed_road_types:
-            edges_to_remove.append((u, v, k))
-    
-    for edge in edges_to_remove:
-        try:
-            G.remove_edge(*edge)
-        except:
-            pass
-    
-    print(f"Removed {len(edges_to_remove)} roads")
-    print(f"✅ Road network loaded: {len(G.nodes)} nodes, {len(G.edges)} edges")
+    print(f"🗺️ Road network loaded: {len(G.nodes)} nodes, {len(G.edges)} edges")
     ROAD_NETWORK_LOADED = True
 except Exception as e:
     print(f"❌ Failed to load road network: {e}")
