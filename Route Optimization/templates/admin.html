@@ -1285,9 +1285,6 @@
                                         <button id="spawnTruckBtn" class="btn-modern btn-modern-success" style="width:100%; margin-bottom: 8px;">
                                             <i class="fa-solid fa-truck-ramp-box"></i> Deploy Fleet
                                         </button>
-                                        <button class="btn-modern btn-modern-accent" onclick="window.open('/driver', '_blank')" style="width: 100%; justify-content: center; background: #8B5CF6; color: white;">
-                                            <i class="fa-solid fa-truck"></i> Open Driver App
-                                        </button>
                                     </div>
                                 </div>
 
@@ -1433,10 +1430,6 @@
                             <div class="app-card" style="padding: 16px; flex-grow: 1;">
                                 <div class="app-card-title" style="margin-bottom: 12px; font-size: 14px;"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i> Quick Actions</div>
                                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-                                    <div class="square-action-card" onclick="window.open('/driver', '_blank')">
-                                        <i class="fa-solid fa-steering-wheel" style="font-size: 24px; color: #3B82F6; margin-bottom: 8px;"></i>
-                                        <span style="font-size: 10px;">Driver Console</span>
-                                    </div>
                                     <div class="square-action-card" onclick="document.getElementById('monthlySummaryBtn').click()">
                                         <i class="fa-solid fa-bullhorn" style="font-size: 24px; color: #10B981; margin-bottom: 8px;"></i>
                                         <span style="font-size: 10px;">Broadcast SMS</span>
@@ -1813,13 +1806,6 @@
                             <div>
                                 <div style="font-size: 14px; font-weight: 700; color: #0F172A;">Broadcast SMS</div>
                                 <div style="font-size: 11px; color: #64748B;">Notify residents</div>
-                            </div>
-                        </div>
-                        <div class="premium-action-card" onclick="window.open('/driver', '_blank')">
-                            <div style="background: #F3E8FF; padding: 12px; border-radius: 8px; color: #9333EA;"><i class="fa-solid fa-truck" style="font-size: 20px;"></i></div>
-                            <div>
-                                <div style="font-size: 14px; font-weight: 700; color: #0F172A;">Driver Console</div>
-                                <div style="font-size: 11px; color: #64748B;">Live driver interface</div>
                             </div>
                         </div>
                     </div>
@@ -4979,12 +4965,6 @@ let notifiedBins = new Set();
 
         // Clear history button has been removed from UI
         
-        // 🔥 NEW: Open Driver App in New Tab
-        function openDriverApp() {
-            console.log('🚛 Opening Driver App in new tab...');
-            window.open('/driver', '_blank');
-        }
-        
         // Fleet Management Controls (Placeholder functions for UI)
         function pauseTruck(truckId) {
             console.log(`⏸️ Pausing truck ${truckId}`);
@@ -5522,11 +5502,7 @@ let notifiedBins = new Set();
                     // Action buttons HTML
                     let actionButtonsHtml = '';
                     if (tid === 'T1') {
-                        actionButtonsHtml = `
-                            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                <button onclick="openDriverApp()" style="flex: 1; background: #DC2626; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;">
-                                    <i class="fa-solid fa-steering-wheel"></i> Open Driver App
-                                </button>
+                        actionButtonsHtml = '';
                             </div>
                         `;
                     } else {
