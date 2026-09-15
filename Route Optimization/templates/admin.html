@@ -5085,15 +5085,35 @@ let notifiedBins = new Set();
                                 statusList.appendChild(t1Row);
                             }
                         } else {
-                            m.truck.setLatLng([t1.lat, t1.lng]);
-                            m.label.setLatLng([t1.lat, t1.lng]);
+                            const from = m.truck.getLatLng();
+                            const toLat = t1.lat;
+                            const toLng = t1.lng;
+                            
+                            if (from.lat !== toLat || from.lng !== toLng) {
+                                // Interpolate over 10 frames (50ms x 10 = 500ms polling interval)
+                                let i = 0;
+                                const frames = 10;
+                                const animInterval = setInterval(() => {
+                                    i++;
+                                    const lat = from.lat + (toLat - from.lat) * (i / frames);
+                                    const lng = from.lng + (toLng - from.lng) * (i / frames);
+                                    
+                                    m.truck.setLatLng([lat, lng]);
+                                    m.label.setLatLng([lat, lng]);
+                                    
+                                    if (i >= frames) clearInterval(animInterval);
+                                }, 50);
+                            }
                         }
                         
                         // Update T1 progress bar + route shrink
                         if (simulationData && simulationData.multiTruckRoutes) {
                             const t1Route = simulationData.multiTruckRoutes.find(r => r.truck_id === 'T1');
-                            if (t1Route && t1Route.route_coordinates && t1.path_index != null) {
-                                const total = t1Route.route_coordinates.length;
+                            // Bug Fix 1: check 'route' as returned by /api/get_simulation_status
+                            const t1Coords = t1Route ? (t1Route.route || t1Route.route_coordinates) : null;
+                            
+                            if (t1Route && t1Coords && t1.path_index != null) {
+                                const total = t1Coords.length;
                                 const idx = t1.path_index;
                                 truckPathProgress['T1'] = idx;
                                 const pct = total > 0 ? Math.min(100, Math.round((idx / total) * 100)) : 0;
@@ -5110,7 +5130,7 @@ let notifiedBins = new Set();
                                     if (routeLines['T1'] && map.hasLayer(routeLines['T1'])) map.removeLayer(routeLines['T1']);
                                     delete routeLines['T1'];
                                 } else if (routeLines['T1']) {
-                                    routeLines['T1'].setLatLngs(t1Route.route_coordinates.slice(idx).map(c => [c[0], c[1]]));
+                                    routeLines['T1'].setLatLngs(t1Coords.slice(idx).map(c => [c[0], c[1]]));
                                 }
                             }
                         }
