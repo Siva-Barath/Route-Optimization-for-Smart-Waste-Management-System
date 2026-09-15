@@ -5052,15 +5052,20 @@ let notifiedBins = new Set();
             fetch('/api/t1_state')
                 .then(res => res.json())
                   .then(t1 => {
-                      if (t1 && t1.ready && t1.lat && t1.lng) {
+                      if (
+                          t1 &&
+                          t1.ready === true &&
+                          Number.isFinite(Number(t1.lat)) &&
+                          Number.isFinite(Number(t1.lng))
+                      ) {
                           let m = truckMarkers['T1'];
                           if (!m) {
                               const t1Icon = L.divIcon({
                                   html: '<div style="background:#DC2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
                                   iconSize: [36, 36], iconAnchor: [18, 18], className: 'driver-truck'
                               });
-                              const t1Marker = L.marker([t1.lat, t1.lng], { icon: t1Icon }).addTo(map);
-                              const t1Label = L.marker([t1.lat, t1.lng], {
+                              const t1Marker = L.marker([Number(t1.lat), Number(t1.lng)], { icon: t1Icon }).addTo(map);
+                              const t1Label = L.marker([Number(t1.lat), Number(t1.lng)], {
                                   icon: L.divIcon({
                                       html: '<div style="background:#DC2626;color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">T1</div>',
                                       className: '', iconSize: [40, 16], iconAnchor: [20, -20]
@@ -5085,14 +5090,14 @@ let notifiedBins = new Set();
                               }
                           } else {
                               const from = m.truck.getLatLng();
-                              const toLat = t1.lat;
-                              const toLng = t1.lng;
+                              const toLat = Number(t1.lat);
+                              const toLng = Number(t1.lng);
                               
                               if (from.lat !== toLat || from.lng !== toLng) {
                                   if (window.t1AnimInterval) clearInterval(window.t1AnimInterval);
-                                  // Interpolate over 10 frames (50ms x 10 = 500ms polling interval)
+                                  // Interpolate over 9 frames (~450ms)
                                   let i = 0;
-                                  const frames = 10;
+                                  const frames = 9;
                                   window.t1AnimInterval = setInterval(() => {
                                       i++;
                                       const lat = from.lat + (toLat - from.lat) * (i / frames);
@@ -5110,38 +5115,49 @@ let notifiedBins = new Set();
                           if (simulationData && simulationData.multiTruckRoutes) {
                               const t1Route = simulationData.multiTruckRoutes.find(r => r.truck_id === 'T1');
                               const t1Coords = t1Route?.route_coordinates || [];
+                              const idx = Number(t1.path_index);
                               
-                              if (t1Route && t1Coords.length > 0 && t1.path_index != null) {
+                              if (t1Route && t1Coords.length > 0 && !isNaN(idx)) {
                                   const total = t1Coords.length;
-                                const idx = t1.path_index;
-                                truckPathProgress['T1'] = idx;
-                                const pct = total > 0 ? Math.min(100, Math.round((idx / total) * 100)) : 0;
-                                const bar = document.getElementById('truckBar_T1');
-                                const lbl = document.getElementById('truckPct_T1');
-                                if (bar) bar.style.width = pct + '%';
-                                if (lbl) lbl.innerText = pct + '%';
-                                updateOverallProgress();
-                                
-                                // Shrink T1 route line directly
-                                if (idx >= total - 1) {
-                                    // T1 finished — remove route permanently
-                                    routeFinished['T1'] = true;
-                                    if (routeLines['T1'] && map.hasLayer(routeLines['T1'])) map.removeLayer(routeLines['T1']);
-                                    delete routeLines['T1'];
-                                } else if (routeLines['T1']) {
-                                    routeLines['T1'].setLatLngs(t1Coords.slice(idx).map(c => [c[0], c[1]]));
-                                }
-                            }
-                        }
-                    } else {
-                        let m = truckMarkers['T1'];
-                        if (m) {
-                            if (m.truck && map.hasLayer(m.truck)) map.removeLayer(m.truck);
-                            if (m.label && map.hasLayer(m.label)) map.removeLayer(m.label);
-                            delete truckMarkers['T1'];
-                        }
-                    }
-                }).catch(err => console.error("T1 Poller Error:", err));
+                                  truckPathProgress['T1'] = idx;
+                                  const pct = total > 0 ? Math.min(100, Math.round((idx / total) * 100)) : 0;
+                                  const bar = document.getElementById('truckBar_T1');
+                                  const lbl = document.getElementById('truckPct_T1');
+                                  if (bar) bar.style.width = pct + '%';
+                                  if (lbl) lbl.innerText = pct + '%';
+                                  updateOverallProgress();
+                                  
+                                  // Shrink T1 route line directly
+                                  if (idx >= total - 1) {
+                                      // T1 finished - remove route permanently
+                                      routeFinished['T1'] = true;
+                                      if (routeLines['T1'] && map.hasLayer(routeLines['T1'])) map.removeLayer(routeLines['T1']);
+                                      delete routeLines['T1'];
+                                  } else {
+                                      if (!routeLines['T1']) {
+                                          const latlngs = t1Coords.map(pt => [pt[0], pt[1]]);
+                                          routeLines['T1'] = L.polyline(latlngs, {
+                                              color: truckColorMap['T1'] || '#DC2626',
+                                              weight: 5,
+                                              opacity: 0.8
+                                          }).addTo(map);
+                                      }
+                                      routeLines['T1'].setLatLngs(t1Coords.slice(Math.max(0, idx)).map(c => [c[0], c[1]]));
+                                  }
+                              }
+                          }
+                      } else {
+                          // Only remove if explicitly completed
+                          if (t1 && t1.completed === true) {
+                              let m = truckMarkers['T1'];
+                              if (m) {
+                                  if (m.truck && map.hasLayer(m.truck)) map.removeLayer(m.truck);
+                                  if (m.label && map.hasLayer(m.label)) map.removeLayer(m.label);
+                                  delete truckMarkers['T1'];
+                              }
+                          }
+                      }
+                  }).catch(err => console.error("T1 Poller Error:", err));
         }, 500);
         
         // Tab switching functions
