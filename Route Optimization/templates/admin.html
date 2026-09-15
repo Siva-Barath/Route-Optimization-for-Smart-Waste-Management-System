@@ -5051,69 +5051,68 @@ let notifiedBins = new Set();
             if (isResetting) return;
             fetch('/api/t1_state')
                 .then(res => res.json())
-                .then(t1 => {
-                    const isSpawned = simulationData && simulationData.truckSpawned;
-                    if (t1 && t1.ready && isSpawned && t1.lat && t1.lng) {
-                        let m = truckMarkers['T1'];
-                        if (!m) {
-                            const t1Icon = L.divIcon({
-                                html: '<div style="background:#DC2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
-                                iconSize: [36, 36], iconAnchor: [18, 18], className: 'driver-truck'
-                            });
-                            const t1Marker = L.marker([t1.lat, t1.lng], { icon: t1Icon }).addTo(map);
-                            const t1Label = L.marker([t1.lat, t1.lng], {
-                                icon: L.divIcon({
-                                    html: '<div style="background:#DC2626;color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">T1</div>',
-                                    className: '', iconSize: [40, 16], iconAnchor: [20, -20]
-                                })
-                            }).addTo(map);
-                            truckMarkers['T1'] = { truck: t1Marker, label: t1Label };
-                            
-                            const statusList = document.getElementById('truckStatusList');
-                            if (statusList && !document.getElementById('truckBar_T1')) {
-                                const t1Row = document.createElement('div');
-                                t1Row.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(220,38,38,0.1);border-radius:4px;font-size:12px;';
-                                t1Row.innerHTML = `
-                                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                                        <span style="font-weight:bold;color:#DC2626">T1 (Driver)</span>
-                                        <span id="truckPct_T1">0%</span>
-                                    </div>
-                                    <div class="progress-bar" style="height:4px;margin-top:4px;">
-                                        <div id="truckBar_T1" class="progress-fill" style="width:0%;background:#DC2626;"></div>
-                                    </div>
-                                `;
-                                statusList.appendChild(t1Row);
-                            }
-                        } else {
-                            const from = m.truck.getLatLng();
-                            const toLat = t1.lat;
-                            const toLng = t1.lng;
-                            
-                            if (from.lat !== toLat || from.lng !== toLng) {
-                                // Interpolate over 10 frames (50ms x 10 = 500ms polling interval)
-                                let i = 0;
-                                const frames = 10;
-                                const animInterval = setInterval(() => {
-                                    i++;
-                                    const lat = from.lat + (toLat - from.lat) * (i / frames);
-                                    const lng = from.lng + (toLng - from.lng) * (i / frames);
-                                    
-                                    m.truck.setLatLng([lat, lng]);
-                                    m.label.setLatLng([lat, lng]);
-                                    
-                                    if (i >= frames) clearInterval(animInterval);
-                                }, 50);
-                            }
-                        }
-                        
-                        // Update T1 progress bar + route shrink
-                        if (simulationData && simulationData.multiTruckRoutes) {
-                            const t1Route = simulationData.multiTruckRoutes.find(r => r.truck_id === 'T1');
-                            // Bug Fix 1: check 'route' as returned by /api/get_simulation_status
-                            const t1Coords = t1Route ? (t1Route.route || t1Route.route_coordinates) : null;
-                            
-                            if (t1Route && t1Coords && t1.path_index != null) {
-                                const total = t1Coords.length;
+                  .then(t1 => {
+                      if (t1 && t1.ready && t1.lat && t1.lng) {
+                          let m = truckMarkers['T1'];
+                          if (!m) {
+                              const t1Icon = L.divIcon({
+                                  html: '<div style="background:#DC2626;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
+                                  iconSize: [36, 36], iconAnchor: [18, 18], className: 'driver-truck'
+                              });
+                              const t1Marker = L.marker([t1.lat, t1.lng], { icon: t1Icon }).addTo(map);
+                              const t1Label = L.marker([t1.lat, t1.lng], {
+                                  icon: L.divIcon({
+                                      html: '<div style="background:#DC2626;color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:bold;border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">T1</div>',
+                                      className: '', iconSize: [40, 16], iconAnchor: [20, -20]
+                                  })
+                              }).addTo(map);
+                              truckMarkers['T1'] = { truck: t1Marker, label: t1Label };
+                              
+                              const statusList = document.getElementById('truckStatusList');
+                              if (statusList && !document.getElementById('truckBar_T1')) {
+                                  const t1Row = document.createElement('div');
+                                  t1Row.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(220,38,38,0.1);border-radius:4px;font-size:12px;';
+                                  t1Row.innerHTML = `
+                                      <div style="display:flex;justify-content:space-between;align-items:center;">
+                                          <span style="font-weight:bold;color:#DC2626">T1 (Driver)</span>
+                                          <span id="truckPct_T1">0%</span>
+                                      </div>
+                                      <div class="progress-bar" style="height:4px;margin-top:4px;">
+                                          <div id="truckBar_T1" class="progress-fill" style="width:0%;background:#DC2626;"></div>
+                                      </div>
+                                  `;
+                                  statusList.appendChild(t1Row);
+                              }
+                          } else {
+                              const from = m.truck.getLatLng();
+                              const toLat = t1.lat;
+                              const toLng = t1.lng;
+                              
+                              if (from.lat !== toLat || from.lng !== toLng) {
+                                  if (window.t1AnimInterval) clearInterval(window.t1AnimInterval);
+                                  // Interpolate over 10 frames (50ms x 10 = 500ms polling interval)
+                                  let i = 0;
+                                  const frames = 10;
+                                  window.t1AnimInterval = setInterval(() => {
+                                      i++;
+                                      const lat = from.lat + (toLat - from.lat) * (i / frames);
+                                      const lng = from.lng + (toLng - from.lng) * (i / frames);
+                                      
+                                      m.truck.setLatLng([lat, lng]);
+                                      m.label.setLatLng([lat, lng]);
+                                      
+                                      if (i >= frames) clearInterval(window.t1AnimInterval);
+                                  }, 50);
+                              }
+                          }
+                          
+                          // Update T1 progress bar + route shrink
+                          if (simulationData && simulationData.multiTruckRoutes) {
+                              const t1Route = simulationData.multiTruckRoutes.find(r => r.truck_id === 'T1');
+                              const t1Coords = t1Route?.route_coordinates || [];
+                              
+                              if (t1Route && t1Coords.length > 0 && t1.path_index != null) {
+                                  const total = t1Coords.length;
                                 const idx = t1.path_index;
                                 truckPathProgress['T1'] = idx;
                                 const pct = total > 0 ? Math.min(100, Math.round((idx / total) * 100)) : 0;
